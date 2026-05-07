@@ -206,6 +206,19 @@ def render_nueva_orden():
                     if not isinstance(roi, dict): roi = {}
                     st.write(f"**OD:** {rod.get('Esf','')} {rod.get('Cil','')} x {rod.get('Eje','')}")
                     st.write(f"**OI:** {roi.get('Esf','')} {roi.get('Cil','')} x {roi.get('Eje','')}")
+                    st.info(f"Estado: {r['estado']}")
+                    
+                    # DESCARGAR DESDE EL HISTORIAL
+                    pdf_h = generar_pdf_orden(r, r['id'])
+                    st.download_button(
+                        label=f"📥 Descargar PDF #{r['id']}",
+                        data=pdf_h,
+                        file_name=f"Orden_{r['id']}_{r['paciente_nombre'].replace(' ','_')}.pdf",
+                        mime="application/pdf",
+                        key=f"dl_h_{r['id']}",
+                        use_container_width=True
+                    )
+                    
                     # SOLO EL ADMIN PUEDE ELIMINAR
                     if st.session_state.get("user_role") == "Administrador":
                         if st.button(f"🗑️ Eliminar #{r['id']}", key=f"del_{r['id']}"):
