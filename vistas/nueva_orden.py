@@ -50,7 +50,10 @@ def generar_pdf_orden(data, order_id="N/A"):
     pdf.cell(30, 8, "A.V.", 1, 1, 'C', True)
     
     pdf.set_font("Arial", '', 11)
-    od = data['receta_od']; oi = data['receta_oi']
+    od = data.get('receta_od')
+    oi = data.get('receta_oi')
+    if not isinstance(od, dict): od = {}
+    if not isinstance(oi, dict): oi = {}
     pdf.cell(40, 8, "DERECHO (OD)", 1)
     pdf.cell(30, 8, str(od.get('Esf','')), 1, 0, 'C')
     pdf.cell(30, 8, str(od.get('Cil','')), 1, 0, 'C')
