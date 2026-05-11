@@ -516,7 +516,8 @@ def render_clinica():
                                                 }
                                                 for campo, val in updates.items():
                                                     st.session_state.df_historias.at[i, campo] = val
-                                                guardar_datos()
+                                                from database import actualizar_historia
+                                                actualizar_historia(h_id, updates)
                                                 st.session_state[f"editando_historia_{h_id}"] = False
                                                 st.success("Historia actualizada.")
                                                 st.rerun()
