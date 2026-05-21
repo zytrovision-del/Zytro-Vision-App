@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from database import registrar_venta_directa, registrar_pago_saldo, cargar_inventario, cargar_ordenes_trabajo
+from database import registrar_venta_directa, registrar_pago_saldo, cargar_inventario, cargar_ordenes_trabajo, guardar_orden_trabajo
 
 def render_ventas():
     # ── ESTILOS CSS PARA ESTILO FACTURA Y CONFIGURADOR ──
