@@ -91,7 +91,7 @@ def render_inventario():
     df = cargar_inventario(sucursal_activa)
 
     if df.empty:
-        st.info("📭 No hay productos registrados.")
+        st.info("📭 No hay productos registrados en esta sucursal.")
         return
 
     # Normalización de columnas
@@ -101,7 +101,7 @@ def render_inventario():
         if col not in df.columns:
             df[col] = default
 
-    # Buscador, Filtros y Botón de Agregar
+    # Buscador, Filtros y Botón de Agregar (En una sola fila)
     f1, f2, f3 = st.columns([2.5, 1, 1])
     busq = f1.text_input("🔍 Buscar por código, marca o producto...", label_visibility="collapsed", placeholder="Buscar...")
     f_cat = f2.selectbox("Categoría", ["Todas"] + sorted(df["categoria"].unique().tolist()), label_visibility="collapsed")
@@ -111,7 +111,7 @@ def render_inventario():
 
     # Formulario para Agregar Producto
     if st.session_state.get("show_add_form"):
-        st.markdown('<div class="edit-container" style="background:#f0f7ff; border-color:#3b82f6;">', unsafe_allow_html=True)
+        st.markdown('<div class="edit-container" style="background:#f0f7ff; border-color:#3b82f6; padding:20px; border-radius:12px; border:1px solid #bae6fd; margin-bottom:20px;">', unsafe_allow_html=True)
         st.subheader("🆕 Registrar Nuevo Producto")
         with st.form("form_nuevo_prod", border=False):
             c1, c2, c3 = st.columns(3)
