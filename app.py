@@ -497,15 +497,10 @@ if not st.session_state.logged_in:
         st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
         
         # Carga de Logo en Base64 para inyección HTML
-        logo_b64 = ""
-        logo_path = "logo.png" if os.path.exists("logo.png") else ("logo.jpg" if os.path.exists("logo.jpg") else None)
-        if logo_path:
-            try:
-                with open(logo_path, "rb") as f:
-                    logo_b64 = base64.b64encode(f.read()).decode()
-            except Exception: pass
-
-        logo_html = f'<img src="data:image/png;base64,{logo_b64}" width="220">' if logo_b64 else ""
+        # Load logo from Supabase storage (private bucket)
+        from supabase_client import public_url
+        logo_url = public_url("logos/logo.png")
+        logo_html = f'<img src="{logo_url}" width="220"/>' if logo_url else ''
 
         st.markdown(f"""
             <div class="glass-card">
@@ -650,14 +645,32 @@ with st.sidebar:
         st.markdown("<style>[data-testid='stSidebar'] img { filter: brightness(0); padding-bottom: 0px !important; margin-top: -55px !important; }</style>", unsafe_allow_html=True)
         st.image(logo_path, use_container_width=True)
     else:
-        st.markdown("""
-        <div class="logo-container">
-            <p class="logo-hint">📌 Esperando el logo...</p>
-            <p style="color:#475569; font-size:12px; margin-top:8px;">
-               Guárdalo como <strong>logo.png</strong> en la carpeta del proyecto.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+        # Upload logo to Supabase if not present locally
+        uploaded_file = st.file_uploader("📤 Subir logo", type=["png", "jpg", "jpeg"])
+        if uploaded_file:
+            # Save temporarily
+            import tempfile
+            with tempfile.NamedTemporaryFile(delete=False, suffix=uploaded_file.name) as tmp:
+                tmp.write(uploaded_file.getvalue())
+                tmp_path = tmp.name
+            # Upload to Supabase bucket 'logos/'
+            from supabase_client import upload_image, public_url
+            remote_path = f"logos/{uploaded_file.name}"
+            upload_image(tmp_path, remote_path)
+            logo_url = public_url(remote_path)
+            if logo_url:
+                st.image(logo_url, use_column_width=True)
+            else:
+                st.warning("No se pudo cargar el logo.")
+        else:
+            st.markdown("""
+            <div class="logo-container">
+                <p class="logo-hint">📌 Esperando el logo...</p>
+                <p style='color:#475569; font-size:12px; margin-top:8px;'>
+                   Guárdalo como <strong>logo.png</strong> en la carpeta del proyecto.
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
 
     st.markdown("<div class='fancy-divider'></div>", unsafe_allow_html=True)
 
