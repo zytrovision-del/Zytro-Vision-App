@@ -92,10 +92,7 @@ def generar_pdf_historia(row: dict, paciente_info: dict, opto: dict) -> bytes:
         pdf.set_text_color(100, 100, 100)
         pdf.cell(0, 5, "Tu optica amiga", ln=True, align="C")
 
-    # ─ LÍNEA + TÍTULO ──────────────────────────────────────────
-    pdf.set_draw_color(0, 160, 180)
-    pdf.set_line_width(1)
-    pdf.line(18, pdf.get_y(), 192, pdf.get_y())
+    # ─ TÍTULO ──────────────────────────────────────────
     pdf.ln(6)
     pdf.set_font("Helvetica", "B", 20)
     pdf.set_text_color(30, 30, 30)
