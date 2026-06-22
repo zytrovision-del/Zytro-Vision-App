@@ -10,9 +10,26 @@ except ImportError:
 # Bucket name from environment variables (as defined in .env)
 SUPABASE_BUCKET = os.getenv("SUPABASE_BUCKET", "happy-vision")
 
+import json
+
 def _ensure_client() -> bool:
     """Check that Supabase client and bucket are configured."""
     return supabase is not None and SUPABASE_BUCKET is not None
+
+def upload_config(config_dict: dict, remote_path: str = "logos/config.json") -> bool:
+    if not _ensure_client(): return False
+    try:
+        data = json.dumps(config_dict).encode("utf-8")
+        res = supabase.storage.from_(SUPABASE_BUCKET).upload(remote_path, data, {"upsert": True})
+        return not res.get("error")
+    except Exception: return False
+
+def download_config(remote_path: str = "logos/config.json") -> dict:
+    if not _ensure_client(): return {}
+    try:
+        res = supabase.storage.from_(SUPABASE_BUCKET).download(remote_path)
+        return json.loads(res.decode("utf-8"))
+    except Exception: return {}
 
 def upload_image(local_path: str, remote_path: str) -> bool:
     """Upload a local file to Supabase Storage.

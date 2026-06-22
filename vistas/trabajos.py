@@ -104,7 +104,7 @@ def render_trabajos():
                 # --- MEJORA PREMIUM: WHATSAPP INTELIGENTE ---
                 msg = ""
                 if nuevo_st == "Listo":
-                    msg = f"¡Hola {row['paciente_nombre']}! Te saluda Zytro Vision {sucursal_activa}. Tus lentes ya están LISTOS para que pases por ellos. 😊"
+                    msg = f"¡Hola {row['paciente_nombre']}! Te saluda {st.session_state.app_config.get('nombre_empresa', 'Zytro Vision')} {sucursal_activa}. Tus lentes ya están LISTOS para que pases por ellos. 😊"
                 elif nuevo_st == "Laboratorio":
                     msg = f"Hola {row['paciente_nombre']}, tus lentes han ingresado a laboratorio. Te avisaremos apenas estén listos."
                 

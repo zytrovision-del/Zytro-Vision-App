@@ -24,7 +24,7 @@ from vistas.citas import render_citas
 from vistas.facturacion import render_facturacion
 from vistas.contabilidad import render_contabilidad
 from vistas.dashboard import render_dashboard
-from vistas.ai_assistant import render_ai_assistant
+# from vistas.ai_assistant import render_ai_assistant
 from database import cargar_sucursales
 
 
@@ -497,7 +497,6 @@ if not st.session_state.logged_in:
         
         # Carga de Logo en Base64 para inyección HTML
         logo_html = ""
-        # 1. Intentar leer el logo local para máxima confiabilidad
         logo_path = "logo.png" if os.path.exists("logo.png") else ("logo.jpg" if os.path.exists("logo.jpg") else None)
         
         if logo_path:
@@ -511,94 +510,130 @@ if not st.session_state.logged_in:
             except Exception:
                 pass
                 
-        # 2. Si no hay logo local, intentar desde Supabase o Caché
         if not logo_html:
             from supabase_client import public_url
             logo_url = st.session_state.get('logo_url') or public_url("logos/logo.png")
             if logo_url:
                 logo_html = f'<img src="{logo_url}" width="220"/>'
 
-        st.markdown(f"""
-            <div class="glass-card">
-                {logo_html}
-        """, unsafe_allow_html=True)
-        
-        # Formulario sin borde nativo
-        with st.form("login_form", border=False):
-            usuario = st.text_input("Usuario", placeholder="ej: admin")
-            password_inp = st.text_input("Contraseña", type="password", placeholder="••••••••")
+        # Cargar configuración global (Nombre de la Empresa)
+        if "app_config" not in st.session_state:
+            from supabase_client import download_config
+            st.session_state.app_config = download_config()
+            if not st.session_state.app_config:
+                st.session_state.app_config = {"nombre_empresa": "Zytro Vision"}
+
+        empresa_nombre = st.session_state.app_config.get("nombre_empresa", "Zytro Vision")
+
+        if not logo_html:
+            st.markdown(f"""
+                <div class="glass-card" style="height: auto !important; padding: 30px !important;">
+                    <h2 style="color: white; text-align: center; font-size: 1.8rem; margin-bottom: 10px;">¡Bienvenido a tu Sistema!</h2>
+                    <p style="color: #cbd5e1; text-align: center; margin-bottom: 20px;">Configura tu óptica para comenzar</p>
+            """, unsafe_allow_html=True)
             
-            # Botón centrado horizontalmente al final
-            submit_login = st.form_submit_button("Ingresar al Sistema", type="primary")
-            
-            if submit_login:
-                _usuarios_act = _cargar_usuarios()
-                if usuario in _usuarios_act and _usuarios_act[usuario]["password"] == password_inp:
-                    ud = _usuarios_act[usuario]
-                    raw_role = str(ud.get("role", ""))
+            with st.form("setup_form", border=False):
+                nuevo_nombre = st.text_input("Nombre de tu Óptica", placeholder="Ej: Visión Clara")
+                nuevo_logo = st.file_uploader("Sube tu Logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
+                
+                submit_setup = st.form_submit_button("Guardar Configuración", type="primary")
+                if submit_setup:
+                    from supabase_client import upload_image, public_url, upload_config
+                    import tempfile
                     
-                    if raw_role.startswith("INACTIVO:"):
-                        st.error("🚫 Tu cuenta ha sido bloqueada. Contacta al administrador.")
-                    else:
-                        st.session_state.logged_in   = True
-                        st.session_state.user_role   = raw_role.replace("INACTIVO:", "")
-                        st.session_state.user_name   = ud.get("nombre", usuario)
-                        st.session_state.user_login    = usuario
-                        st.session_state.user_cargo    = ud.get("cargo", "Optometrista")
-                        st.session_state.user_registro = ud.get("registro", "")
-                        st.session_state.user_telefono = ud.get("telefono", "")
-                        st.session_state.user_firma    = ud.get("firma_base64", "")
-                        st.session_state.user_accesos  = ud.get("accesos", ["Pacientes", "Trabajos", "Ventas"])
+                    if nuevo_nombre:
+                        st.session_state.app_config["nombre_empresa"] = nuevo_nombre
+                        upload_config(st.session_state.app_config)
                         
-                        # AUDITORÍA: Inicio de sesión
+                    if nuevo_logo:
+                        file_ext = nuevo_logo.name.split('.')[-1].lower()
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}") as tmp:
+                            tmp.write(nuevo_logo.getvalue())
+                            tmp_path = tmp.name
+                        if upload_image(tmp_path, "logos/logo.png"):
+                            st.session_state.logo_url = public_url("logos/logo.png")
+                    
+                    st.rerun()
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.stop()
+        else:
+            st.markdown(f"""
+                <div class="glass-card">
+                    {logo_html}
+            """, unsafe_allow_html=True)
+            
+            with st.form("login_form", border=False):
+                usuario = st.text_input("Usuario", placeholder="ej: admin")
+                password_inp = st.text_input("Contraseña", type="password", placeholder="••••••••")
+                
+                submit_login = st.form_submit_button("Ingresar al Sistema", type="primary")
+                
+                if submit_login:
+                    _usuarios_act = _cargar_usuarios()
+                    if usuario in _usuarios_act and _usuarios_act[usuario]["password"] == password_inp:
+                        ud = _usuarios_act[usuario]
+                        raw_role = str(ud.get("role", ""))
+                        
+                        if raw_role.startswith("INACTIVO:"):
+                            st.error("🚫 Tu cuenta ha sido bloqueada. Contacta al administrador.")
+                        else:
+                            st.session_state.logged_in   = True
+                            st.session_state.user_role   = raw_role.replace("INACTIVO:", "")
+                            st.session_state.user_name   = ud.get("nombre", usuario)
+                            st.session_state.user_login    = usuario
+                            st.session_state.user_cargo    = ud.get("cargo", "Optometrista")
+                            st.session_state.user_registro = ud.get("registro", "")
+                            st.session_state.user_telefono = ud.get("telefono", "")
+                            st.session_state.user_firma    = ud.get("firma_base64", "")
+                            st.session_state.user_accesos  = ud.get("accesos", ["Pacientes", "Trabajos", "Ventas"])
+                            
+                            from database import registrar_auditoria
+                            registrar_auditoria(
+                                accion="Inicio de Sesión",
+                                entidad="Seguridad",
+                                detalle=f"Usuario '{usuario}' ingresó al sistema.",
+                                usuario=usuario,
+                                nombre_usuario=ud.get("nombre", usuario),
+                                sucursal="N/A (Previo a selección)"
+                            )
+                            
+                            assigned_branches = ud.get("sucursales_asignadas")
+                            
+                            if "Administrador" in raw_role:
+                                df_s = cargar_sucursales()
+                                if not df_s.empty:
+                                    assigned_branches = df_s["nombre"].tolist()
+                                else:
+                                    assigned_branches = ["Matriz"]
+                            
+                            if not assigned_branches:
+                                assigned_branches = ["Matriz"]
+                            elif isinstance(assigned_branches, str):
+                                assigned_branches = [assigned_branches]
+                                
+                            st.session_state.sucursales_asignadas = assigned_branches
+                            
+                            if len(assigned_branches) == 1:
+                                st.session_state.sucursal_activa = assigned_branches[0]
+                            else:
+                                st.session_state.sucursal_activa = None
+                                
+                            st.rerun()
+                    else:
                         from database import registrar_auditoria
                         registrar_auditoria(
-                            accion="Inicio de Sesión",
+                            accion="Intento de Acceso Fallido",
                             entidad="Seguridad",
-                            detalle=f"Usuario '{usuario}' ingresó al sistema.",
+                            detalle=f"Se intentó ingresar con el usuario '{usuario}' pero la contraseña fue incorrecta.",
                             usuario=usuario,
-                            nombre_usuario=ud.get("nombre", usuario),
-                            sucursal="N/A (Previo a selección)"
+                            sucursal="N/A"
                         )
-                        
-                        # Manejo de sucursales (Administradores siempre tienen todas)
-                        assigned_branches = ud.get("sucursales_asignadas")
-                        
-                        if "Administrador" in raw_role:
-                            df_s = cargar_sucursales()
-                            if not df_s.empty:
-                                assigned_branches = df_s["nombre"].tolist()
-                            else:
-                                assigned_branches = ["Matriz"]
-                        
-                        if not assigned_branches:
-                            assigned_branches = ["Matriz"]
-                        elif isinstance(assigned_branches, str):
-                            assigned_branches = [assigned_branches]
-                            
-                        st.session_state.sucursales_asignadas = assigned_branches
-                        
-                        if len(assigned_branches) == 1:
-                            st.session_state.sucursal_activa = assigned_branches[0]
-                        else:
-                            st.session_state.sucursal_activa = None
-                            
-                        st.rerun()
-                else:
-                    # AUDITORÍA: Intento fallido
-                    from database import registrar_auditoria
-                    registrar_auditoria(
-                        accion="Intento de Acceso Fallido",
-                        entidad="Seguridad",
-                        detalle=f"Se intentó ingresar con el usuario '{usuario}' pero la contraseña fue incorrecta.",
-                        usuario=usuario,
-                        sucursal="N/A"
-                    )
-                    st.error("Credenciales invalidas. Verifica tu usuario y contrasena.")
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<p class="footer-note">© 2024 Zytro Vision Integral System</p>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+                        st.error("Credenciales invalidas. Verifica tu usuario y contrasena.")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(f'<p class="footer-note">© {datetime.now().year} {empresa_nombre} Integral System</p>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
     st.stop()
 
@@ -847,4 +882,4 @@ else:
     render_clinica()
 
 # ── Renderizar Botón Flotante de Inteligencia Artificial ──
-render_ai_assistant()
+# render_ai_assistant()

@@ -81,9 +81,13 @@ def generar_pdf_historia(row: dict, paciente_info: dict, opto: dict) -> bytes:
         except Exception:
             pdf.set_y(20)
     else:
+        import streamlit as st
+        app_config = st.session_state.get("app_config", {})
+        empresa_nombre = app_config.get("nombre_empresa", "Zytro Vision")
+        
         pdf.set_font("Helvetica", "B", 14)
         pdf.set_text_color(0, 160, 180)
-        pdf.cell(0, 10, "HAPPY VISION", ln=True, align="C")
+        pdf.cell(0, 10, _s(empresa_nombre).upper(), ln=True, align="C")
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(100, 100, 100)
         pdf.cell(0, 5, "Tu optica amiga", ln=True, align="C")
@@ -389,9 +393,12 @@ def generar_pdf_ticket(orden: dict, sucursal_info: dict = None) -> bytes:
     if logo_path:
         pdf.image(logo_path, x=58, y=5, w=30)
         pdf.ln(25)
-    else:
+        import streamlit as st
+        app_config = st.session_state.get("app_config", {})
+        empresa_nombre = app_config.get("nombre_empresa", "Zytro Vision")
+        
         pdf.set_font("Helvetica", "B", 16)
-        pdf.cell(0, 10, "HAPPY VISION", ln=True, align="C")
+        pdf.cell(0, 10, _s(empresa_nombre).upper(), ln=True, align="C")
         pdf.ln(5)
 
     pdf.set_font("Helvetica", "B", 12)
@@ -450,7 +457,11 @@ def generar_pdf_ticket(orden: dict, sucursal_info: dict = None) -> bytes:
     pdf.multi_cell(0, 4, _s("Nota: Los trabajos de laboratorio tienen un tiempo estimado de entrega de 3 a 5 días laborables. Favor presentar este ticket para retirar su pedido."), align="C")
     pdf.ln(5)
     pdf.set_font("Helvetica", "B", 8)
-    pdf.cell(0, 5, _s(f"📍 Sucursal: {orden['sucursal']} | Zytro Vision"), ln=True, align="C")
+    import streamlit as st
+    app_config = st.session_state.get("app_config", {})
+    empresa_nombre = app_config.get("nombre_empresa", "Zytro Vision")
+    
+    pdf.cell(0, 5, _s(f"📍 Sucursal: {orden['sucursal']} | {empresa_nombre}"), ln=True, align="C")
 
     return pdf.output(dest="S").encode("latin-1")
 
@@ -463,8 +474,12 @@ def generar_pdf_venta(venta_data: dict) -> bytes:
     if os.path.exists("logo.png"):
         pdf.image("logo.png", 10, 8, 33)
     
+    import streamlit as st
+    app_config = st.session_state.get("app_config", {})
+    empresa_nombre = app_config.get("nombre_empresa", "Zytro Vision")
+    
     pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, _s("HAPPY VISION"), ln=True, align="C")
+    pdf.cell(0, 10, _s(empresa_nombre).upper(), ln=True, align="C")
     pdf.set_font("Arial", '', 9)
     pdf.cell(0, 5, _s("RUC: 1726715053001"), ln=True, align="C")
     pdf.cell(0, 5, _s("Dirección: Sucursal " + venta_data.get('sucursal', 'Matriz')), ln=True, align="C")
