@@ -1,5 +1,5 @@
 """
-Script de carga de inventario inicial para Happy Vision.
+Script de carga de inventario inicial para Zytro Vision.
 Ejecutar UNA sola vez desde la carpeta del proyecto.
 """
 

@@ -1,4 +1,4 @@
-# Script de Respaldo para Happy Vision
+# Script de Respaldo para Zytro Vision
 $fecha = Get-Date -Format "yyyy-MM-dd_HH-mm"
 $backupDir = "$PSScriptRoot\Backups"
 $backupName = "HappyVision_Backup_$fecha.zip"
@@ -8,7 +8,7 @@ if (!(Test-Path $backupDir)) {
     New-Item -ItemType Directory -Path $backupDir | Out-Null
 }
 
-Write-Host "Iniciando respaldo de Happy Vision..." -ForegroundColor Cyan
+Write-Host "Iniciando respaldo de Zytro Vision..." -ForegroundColor Cyan
 
 try {
     # Lista de carpetas/archivos a ignorar

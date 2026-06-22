@@ -3,7 +3,7 @@ utils/__init__.py — Punto de entrada del paquete utils
 """
 
 # WhatsApp
-from utils.whatsapp import (
+from .whatsapp import (
     wa_link,
     generar_msg_factura,
     generar_msg_hc,
@@ -11,7 +11,7 @@ from utils.whatsapp import (
 )
 
 # PDF
-from utils.pdf import (
+from .pdf import (
     _s,
     generar_pdf_historia,
     generar_pdf_ticket,

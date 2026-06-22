@@ -104,7 +104,7 @@ def render_laboratorio():
                         res_p = supabase.table("pacientes").select("telefono").eq("id", row['paciente_id']).execute()
                         if res_p.data:
                             tel = res_p.data[0]['telefono']
-                            msg = f"¡Hola {row['paciente_nombre']}! 👋 Te saluda Happy Vision. Tu orden #{row['id']} ya está lista en nuestra sucursal. Puedes pasar a retirarla cuando gustes. ¡Te esperamos!"
+                            msg = f"¡Hola {row['paciente_nombre']}! 👋 Te saluda Zytro Vision. Tu orden #{row['id']} ya está lista en nuestra sucursal. Puedes pasar a retirarla cuando gustes. ¡Te esperamos!"
                             wa_url = f"https://wa.me/{tel}?text={urllib.parse.quote(msg)}"
                             st.markdown(f'<a href="{wa_url}" target="_blank"><button style="width:100%; background:#25D366; color:white; border:none; border-radius:8px; padding:6px; cursor:pointer; font-weight:bold; font-size:10px;">📲 Avisar</button></a>', unsafe_allow_html=True)
                 

@@ -7,7 +7,7 @@ def render_dashboard():
     st.markdown("""
         <div class="page-header">
             <h1 style='margin:0; color:#1e293b;'>🏠 Dashboard de Control</h1>
-            <p style='margin:5px 0 0 0; color:#64748b;'>Resumen ejecutivo de Happy Vision</p>
+            <p style='margin:5px 0 0 0; color:#64748b;'>Resumen ejecutivo de Zytro Vision</p>
         </div>
     """, unsafe_allow_html=True)
 

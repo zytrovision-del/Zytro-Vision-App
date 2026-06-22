@@ -102,7 +102,7 @@ def render_crm():
                 if tel:
                     msg = (
                         f"Hola {nombre}, ha llegado el momento de tu chequeo visual de rutina. "
-                        f"¿Te gustaría agendar una cita en Happy Vision para cuidar tu salud visual? "
+                        f"¿Te gustaría agendar una cita en Zytro Vision para cuidar tu salud visual? "
                         f"📞 +593 96 324 1158"
                     )
                     link = wa_link(tel, msg)

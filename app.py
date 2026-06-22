@@ -1,9 +1,7 @@
-"""
-╔══════════════════════════════════════════════════════════════╗
-║         HAPPY VISION · SISTEMA DE GESTIÓN INTEGRAL          ║
-║         Contabilidad · Facturación · Inventario             ║
-╚══════════════════════════════════════════════════════════════╝
-"""
+# ╔══════════════════════════════════════════════════════════════╗
+# ║         HAPPY VISION · SISTEMA DE GESTIÓN INTEGRAL          ║
+# ║         Contabilidad · Facturación · Inventario             ║
+# ╚══════════════════════════════════════════════════════════════╝
 
 import streamlit as st
 import pandas as pd
@@ -26,6 +24,7 @@ from vistas.citas import render_citas
 from vistas.facturacion import render_facturacion
 from vistas.contabilidad import render_contabilidad
 from vistas.dashboard import render_dashboard
+from vistas.ai_assistant import render_ai_assistant
 from database import cargar_sucursales
 
 
@@ -60,12 +59,12 @@ def _cargar_usuarios() -> dict:
 # CONFIGURACIÓN DE PÁGINA
 # ══════════════════════════════════════════════════════════════
 st.set_page_config(
-    page_title="Happy Vision · Sistema de Gestión",
+    page_title="Zytro Vision · Sistema de Gestión",
     page_icon="👁️",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        "About": "Happy Vision · Sistema de Gestión Integral v2.0",
+        "About": "Zytro Vision · Sistema de Gestión Integral v2.0",
     }
 )
 
@@ -299,18 +298,18 @@ if "initialized_v5" not in st.session_state:
         try:
             with open("optometrista.json", "r", encoding="utf-8") as f:
                 d = json.load(f)
-                st.session_state.opto_nombre    = d.get("opto_nombre",    "Optometrista Happy Vision")
+                st.session_state.opto_nombre    = d.get("opto_nombre",    "Optometrista Zytro Vision")
                 st.session_state.opto_registro  = d.get("opto_registro",  "N/A")
                 st.session_state.opto_cargo     = d.get("opto_cargo",     "Optometrista")
-                st.session_state.opto_direccion = d.get("opto_direccion", "Happy Vision")
+                st.session_state.opto_direccion = d.get("opto_direccion", "Zytro Vision")
                 st.session_state.opto_telefono  = d.get("opto_telefono",  "+593 96 324 1158")
         except Exception:
             pass
     if "opto_nombre" not in st.session_state:
-        st.session_state.opto_nombre    = "Optometrista Happy Vision"
+        st.session_state.opto_nombre    = "Optometrista Zytro Vision"
         st.session_state.opto_registro  = "N/A"
         st.session_state.opto_cargo     = "Optometrista"
-        st.session_state.opto_direccion = "Happy Vision"
+        st.session_state.opto_direccion = "Zytro Vision"
         st.session_state.opto_telefono  = "+593 96 324 1158"
 
     st.session_state.initialized_v4 = True
@@ -598,7 +597,7 @@ if not st.session_state.logged_in:
                     st.error("Credenciales invalidas. Verifica tu usuario y contrasena.")
         
         st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('<p class="footer-note">© 2024 Happy Vision Integral System</p>', unsafe_allow_html=True)
+        st.markdown('<p class="footer-note">© 2024 Zytro Vision Integral System</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.stop()
@@ -812,6 +811,9 @@ with st.sidebar:
         for key in ["logged_in","user_role","user_name","user_login","user_cargo","user_registro","user_telefono"]:
             st.session_state.pop(key, None)
         st.rerun()
+        
+    # ── Renderizar Botón Flotante de Inteligencia Artificial ──
+    # render_ai_assistant() moved to main body
 
 
 # ══════════════════════════════════════════════════════════════
@@ -843,3 +845,6 @@ elif page == "Configuracion":
     render_configuracion()
 else:
     render_clinica()
+
+# ── Renderizar Botón Flotante de Inteligencia Artificial ──
+render_ai_assistant()

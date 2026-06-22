@@ -13,16 +13,16 @@ def enviar_factura_correo(destinatario, cliente_nombre, ruta_xml, ruta_pdf):
     msg = MIMEMultipart()
     msg['From'] = remitente
     msg['To'] = destinatario
-    msg['Subject'] = "Happy Vision - Factura Electrónica"
+    msg['Subject'] = "Zytro Vision - Factura Electrónica"
     
     cuerpo = f"""
     Estimado(a) {cliente_nombre},
     
     Adjunto encontrará su factura electrónica en formato XML y PDF (RIDE).
-    Gracias por preferir Happy Vision.
+    Gracias por preferir Zytro Vision.
     
     Atentamente,
-    El equipo de Happy Vision
+    El equipo de Zytro Vision
     """
     msg.attach(MIMEText(cuerpo, 'plain'))
     

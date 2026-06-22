@@ -1,5 +1,5 @@
 """
-utils/pdf.py — Generación de PDFs para Happy Vision
+utils/pdf.py — Generación de PDFs para Zytro Vision
 Certificado Visual + Informe Médico
 """
 
@@ -450,7 +450,7 @@ def generar_pdf_ticket(orden: dict, sucursal_info: dict = None) -> bytes:
     pdf.multi_cell(0, 4, _s("Nota: Los trabajos de laboratorio tienen un tiempo estimado de entrega de 3 a 5 días laborables. Favor presentar este ticket para retirar su pedido."), align="C")
     pdf.ln(5)
     pdf.set_font("Helvetica", "B", 8)
-    pdf.cell(0, 5, _s(f"📍 Sucursal: {orden['sucursal']} | Happy Vision"), ln=True, align="C")
+    pdf.cell(0, 5, _s(f"📍 Sucursal: {orden['sucursal']} | Zytro Vision"), ln=True, align="C")
 
     return pdf.output(dest="S").encode("latin-1")
 

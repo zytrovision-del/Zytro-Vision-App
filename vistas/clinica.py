@@ -624,12 +624,12 @@ def render_clinica():
                                         if tel_pac:
                                             fecha_hc = hrow.get('fecha', '')
                                             msg_pdf = (
-                                                f"👁️ *Happy Vision — Certificado Visual*\n\n"
+                                                f"👁️ *Zytro Vision — Certificado Visual*\n\n"
                                                 f"Estimado/a *{nombre_pac}*, esperamos que su consulta del *{fecha_hc}* haya sido de su completa satisfacción.\n\n"
                                                 f"Adjunto encontrará su *Certificado Visual* con el resumen de su evaluación optométrica. Le recomendamos guardarlo para sus registros personales.\n\n"
                                                 f"Recuerde seguir las indicaciones de su optometrista y programar su próximo control a tiempo. Cuidar su visión es cuidar su calidad de vida. 💙\n\n"
                                                 f"Ante cualquier consulta, estamos a su disposición.\n"
-                                                f"📍 *Happy Vision* | 📞 +593 96 324 1158"
+                                                f"📍 *Zytro Vision* | 📞 +593 96 324 1158"
                                             )
                                             wa_pdf_url = f"https://wa.me/{tel_pac}?text={urllib.parse.quote(msg_pdf)}"
                                             if st.button("📲 WhatsApp (Certificado)", key=f"btn_wa_pdf_{hrow['id']}", use_container_width=True):
@@ -686,11 +686,11 @@ def render_clinica():
                                                 fecha_hc = hrow.get('fecha', '')
                                                 indicacion_editada = st.session_state.get(wa_key, "")
                                                 full_wa_msg = (
-                                                    f"👁️ *Happy Vision — Indicaciones Médicas*\n\n"
+                                                    f"👁️ *Zytro Vision — Indicaciones Médicas*\n\n"
                                                     f"Estimado/a *{nombre_pac}*, a continuación las indicaciones de su consulta del *{fecha_hc}*:\n\n"
                                                     f"{indicacion_editada}\n\n"
                                                     f"Ante cualquier duda o molestia, comuníquese con nosotros.\n"
-                                                    f"📍 *Happy Vision* | 📞 +593 96 324 1158"
+                                                    f"📍 *Zytro Vision* | 📞 +593 96 324 1158"
                                                 )
                                                 wa_url = f"https://wa.me/{tel_pac}?text={urllib.parse.quote(full_wa_msg)}"
                                                 if st.button("📲 Enviar por WhatsApp", key=f"btn_wa_ind_{hrow['id']}", use_container_width=True, type="primary"):

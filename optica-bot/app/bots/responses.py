@@ -1,6 +1,6 @@
 # app/bots/responses.py
 
-BIENVENIDA = """¡Hola! Bienvenido a Happy Vision 👓.
+BIENVENIDA = """¡Hola! Bienvenido a Zytro Vision 👓.
 Soy tu asistente virtual. ¿Cómo te llamas para empezar con tu pedido?"""
 
 PEDIR_MONTURA = """Mucho gusto, {nombre}. ¿Qué montura te gustaría comprar hoy? (Ej: Ray-Ban, Oakley, o una montura propia)"""
