@@ -51,8 +51,8 @@ def _cargar_usuarios() -> dict:
         except Exception as e:
             print(f"Error cargando usuarios desde Supabase en app: {e}")
     # Fallback si no hay conexión
-    return {"admin": {"password": "1201", "role": "Administrador", "nombre": "Opt. Anthonny Guato",
-                      "cargo": "Optometrista", "registro": "2250-2024-3004584", "telefono": "+593 96 324 1158"}}
+    return {"admin": {"password": "1201", "role": "Administrador", "nombre": "Dr/a. Administrador",
+                      "cargo": "Optometrista", "registro": "N/A", "telefono": "+000 000 000"}}
 
 
 # ══════════════════════════════════════════════════════════════
