@@ -90,21 +90,15 @@ def render_inventario():
     # ── TABLA PRINCIPAL ────────────────────────────────────────
     df = cargar_inventario(sucursal_activa)
 
-    if df.empty:
-        st.info("📭 No hay productos registrados en esta sucursal.")
-        return
-
-    # Normalización de columnas
-    for col, default in [("nombre", ""), ("categoria", ""), ("proveedor", ""),
-                         ("costo_compra", 0.0), ("precio_venta", 0.0),
-                         ("cantidad_disponible", 0), ("codigo_referencia", "")]:
-        if col not in df.columns:
-            df[col] = default
-
     # Buscador, Filtros y Botón de Agregar (En una sola fila)
     f1, f2, f3 = st.columns([2.5, 1, 1])
     busq = f1.text_input("🔍 Buscar por código, marca o producto...", label_visibility="collapsed", placeholder="Buscar...")
-    f_cat = f2.selectbox("Categoría", ["Todas"] + sorted(df["categoria"].unique().tolist()), label_visibility="collapsed")
+    
+    cat_options = ["Todas"]
+    if not df.empty and "categoria" in df.columns:
+        cat_options += sorted(df["categoria"].unique().tolist())
+        
+    f_cat = f2.selectbox("Categoría", cat_options, label_visibility="collapsed")
     
     if f3.button("➕ Nuevo Producto", type="primary", use_container_width=True):
         st.session_state.show_add_form = not st.session_state.get("show_add_form", False)
@@ -148,6 +142,17 @@ def render_inventario():
                     st.success(f"Producto {n_nom} registrado con éxito.")
                     st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
+
+    if df.empty:
+        st.info("📭 No hay productos registrados en esta sucursal.")
+        return
+
+    # Normalización de columnas
+    for col, default in [("nombre", ""), ("categoria", ""), ("proveedor", ""),
+                         ("costo_compra", 0.0), ("precio_venta", 0.0),
+                         ("cantidad_disponible", 0), ("codigo_referencia", "")]:
+        if col not in df.columns:
+            df[col] = default
 
     df_f = df.copy()
     if busq:
