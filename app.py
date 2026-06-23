@@ -52,7 +52,7 @@ def _cargar_usuarios() -> dict:
             print(f"Error cargando usuarios desde Supabase en app: {e}")
     # Fallback si no hay conexión
     return {"admin": {"password": "1201", "role": "Administrador", "nombre": "Dr/a. Administrador",
-                      "cargo": "Optometrista", "registro": "N/A", "telefono": "+000 000 000"}}
+                      "cargo": "Optometrista", "registro": "N/A", "telefono": "+000 000 000", "empresa_id": "empresa_demo"}}
 
 
 # ══════════════════════════════════════════════════════════════
@@ -320,6 +320,54 @@ if "initialized_v5" not in st.session_state:
 # ══════════════════════════════════════════════════════════════
 USUARIOS = _cargar_usuarios()
 
+# ══════════════════════════════════════════════════════════════
+# VERIFICACIÓN DE RETORNO DE PAYPHONE (CALLBACK)
+# ══════════════════════════════════════════════════════════════
+query_params = st.query_params
+if "clientTransactionId" in query_params:
+    tx_id_full = query_params["clientTransactionId"]
+    # El formato que enviaremos será: empresa_id|timestamp
+    if "|" in tx_id_full:
+        empresa_id_pagador = tx_id_full.split("|")[0]
+        tx_id_only = query_params.get("id", "")
+        
+        # Validación de Doble Paso con Payphone
+        # NOTA: Debes asegurarte de tener requests instalado (pip install requests)
+        import requests
+        try:
+            pp_token = st.secrets.get("PAYPHONE_TOKEN", os.getenv("PAYPHONE_TOKEN"))
+            if pp_token and tx_id_only:
+                headers = {
+                    "Authorization": pp_token,
+                    "Content-Type": "application/json"
+                }
+                # Consultamos el estado real de la transacción a Payphone
+                url_verify = f"https://pay.payphonetodoesposible.com/api/Links/{tx_id_only}"
+                resp = requests.get(url_verify, headers=headers)
+                
+                if resp.status_code == 200:
+                    data_pp = resp.json()
+                    # Verificamos que el status sea 'Approved'
+                    if data_pp.get("transactionStatus") == "Approved":
+                        from database import actualizar_suscripcion_exitosa
+                        if actualizar_suscripcion_exitosa(empresa_id_pagador):
+                            st.success(f"✅ ¡Pago confirmado! La suscripción de {empresa_id_pagador} ha sido renovada por 30 días.")
+                            st.balloons()
+                    else:
+                        st.warning("⚠️ El pago no se completó o fue rechazado.")
+                else:
+                    st.error("❌ Error verificando el pago con Payphone.")
+            else:
+                # Fallback inseguro si no hay token (no recomendado en producción)
+                from database import actualizar_suscripcion_exitosa
+                actualizar_suscripcion_exitosa(empresa_id_pagador)
+                st.success("✅ Pago procesado (Modo Desarrollo). Suscripción renovada.")
+        except Exception as e:
+            st.error(f"Error procesando el retorno de pago: {e}")
+            
+    # Limpiamos la URL para que no se re-procese si recarga
+    st.query_params.clear()
+
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user_role = ""
@@ -489,151 +537,174 @@ if not st.session_state.logged_in:
     </style>
     """, unsafe_allow_html=True)
 
-    # ── LAYOUT DE LOGIN ──────────────────────────────────────
+    # ── LAYOUT DE LOGIN Y MARKETING ───────────────────────────
+    # Bloque de Marketing Comercial
+    st.markdown('''
+    <div style="background-color: rgba(15, 23, 42, 0.7); padding: 40px; border-radius: 15px; text-align: center; margin-bottom: 30px; border: 1px solid rgba(255, 255, 255, 0.1);">
+        <h1 style="color: white; font-weight: 800; font-size: 2.5rem; margin-bottom: 10px;">👁️ ZytroVision · Plataforma de Gestión Integral para Ópticas</h1>
+        <p style="color: #cbd5e1; font-size: 1.1rem; max-width: 800px; margin: 0 auto;">El sistema en la nube más completo para automatizar tu clínica, laboratorio e inventario en un solo lugar.</p>
+    </div>
+    ''', unsafe_allow_html=True)
+    
+    col_m1, col_m2, col_m3 = st.columns(3)
+    
+    with col_m1:
+        st.markdown('''
+        <div style="background-color: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 12px; height: 100%; border: 1px solid rgba(255, 255, 255, 0.05);">
+            <h3 style="color: #60a5fa; margin-bottom: 15px;">👥 Gestión Clínica</h3>
+            <p style="color: #e2e8f0; font-size: 0.95rem;">Historias completas, recetas, optometría y agenda de citas.</p>
+        </div>
+        ''', unsafe_allow_html=True)
+        
+    with col_m2:
+        st.markdown('''
+        <div style="background-color: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 12px; height: 100%; border: 1px solid rgba(255, 255, 255, 0.05);">
+            <h3 style="color: #f472b6; margin-bottom: 15px;">📦 Inventario y Lab</h3>
+            <p style="color: #e2e8f0; font-size: 0.95rem;">Control de stock de monturas, lunas y seguimiento de trabajos.</p>
+        </div>
+        ''', unsafe_allow_html=True)
+        
+    with col_m3:
+        st.markdown('''
+        <div style="background-color: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 12px; height: 100%; border: 1px solid rgba(255, 255, 255, 0.05);">
+            <h3 style="color: #34d399; margin-bottom: 15px;">🧾 Facturación POS</h3>
+            <p style="color: #e2e8f0; font-size: 0.95rem;">Cierres de caja diarios y reportes de contabilidad precisos.</p>
+        </div>
+        ''', unsafe_allow_html=True)
+        
+    st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.1); margin: 40px 0;'>", unsafe_allow_html=True)
+
     _, centered_col, _ = st.columns([1, 1.2, 1])
 
     with centered_col:
-        st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
+        tab_login, tab_registro = st.tabs(["🔐 Iniciar Sesión", "🚀 Crear Cuenta (Prueba Gratis)"])
         
-        # Carga de Logo en Base64 para inyección HTML
-        logo_html = ""
-        logo_path = "logo.png" if os.path.exists("logo.png") else ("logo.jpg" if os.path.exists("logo.jpg") else None)
+        with tab_login:
+            st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
         
-        if logo_path:
-            try:
-                import base64
-                with open(logo_path, "rb") as f:
-                    bin_str = base64.b64encode(f.read()).decode()
-                ext = logo_path.split('.')[-1].lower()
-                mime = "jpeg" if ext == "jpg" else ext
-                logo_html = f'<img src="data:image/{mime};base64,{bin_str}" width="220"/>'
-            except Exception:
-                pass
-                
-        if not logo_html:
-            from supabase_client import public_url
-            logo_url = st.session_state.get('logo_url') or public_url("logos/logo.png")
-            if logo_url:
-                logo_html = f'<img src="{logo_url}" width="220"/>'
-
-        # Cargar configuración global (Nombre de la Empresa)
-        if "app_config" not in st.session_state:
-            from supabase_client import download_config
-            st.session_state.app_config = download_config()
-            if not st.session_state.app_config:
-                st.session_state.app_config = {"nombre_empresa": "Zytro Vision"}
-
-        empresa_nombre = st.session_state.app_config.get("nombre_empresa", "Zytro Vision")
-
-        if not logo_html:
-            st.markdown(f"""
-                <div class="glass-card" style="height: auto !important; padding: 30px !important;">
-                    <h2 style="color: white; text-align: center; font-size: 1.8rem; margin-bottom: 10px;">¡Bienvenido a tu Sistema!</h2>
-                    <p style="color: #cbd5e1; text-align: center; margin-bottom: 20px;">Configura tu óptica para comenzar</p>
-            """, unsafe_allow_html=True)
+            # Carga de Logo en Base64 para inyección HTML
+            logo_html = ""
+            logo_path = "logo.png" if os.path.exists("logo.png") else ("logo.jpg" if os.path.exists("logo.jpg") else None)
             
-            with st.form("setup_form", border=False):
-                nuevo_nombre = st.text_input("Nombre de tu Óptica", placeholder="Ej: Visión Clara")
-                nuevo_logo = st.file_uploader("Sube tu Logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
-                
-                submit_setup = st.form_submit_button("Guardar Configuración", type="primary")
-                if submit_setup:
-                    from supabase_client import upload_image, public_url, upload_config
-                    import tempfile
+            if logo_path:
+                try:
+                    import base64
+                    with open(logo_path, "rb") as f:
+                        bin_str = base64.b64encode(f.read()).decode()
+                    ext = logo_path.split('.')[-1].lower()
+                    mime = "jpeg" if ext == "jpg" else ext
+                    logo_html = f'<img src="data:image/{mime};base64,{bin_str}" width="220"/>'
+                except Exception:
+                    pass
                     
-                    if nuevo_nombre:
-                        st.session_state.app_config["nombre_empresa"] = nuevo_nombre
-                        upload_config(st.session_state.app_config)
-                        
-                    if nuevo_logo:
-                        file_ext = nuevo_logo.name.split('.')[-1].lower()
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}") as tmp:
-                            tmp.write(nuevo_logo.getvalue())
-                            tmp_path = tmp.name
-                        if upload_image(tmp_path, "logos/logo.png"):
-                            st.session_state.logo_url = public_url("logos/logo.png")
+            if not logo_html:
+                from supabase_client import public_url
+                logo_url = st.session_state.get('logo_url') or public_url("logos/logo.png")
+                if logo_url:
+                    logo_html = f'<img src="{logo_url}" width="220"/>'
+
+            # Cargar configuración global (Nombre de la Empresa)
+            if "app_config" not in st.session_state:
+                from supabase_client import download_config
+                st.session_state.app_config = download_config()
+                if not st.session_state.app_config:
+                    st.session_state.app_config = {"nombre_empresa": "Zytro Vision"}
+
+            empresa_nombre = st.session_state.app_config.get("nombre_empresa", "Zytro Vision")
+
+            if not logo_html:
+                st.markdown(f"""
+                    <div class="glass-card" style="height: auto !important; padding: 30px !important;">
+                        <h2 style="color: white; text-align: center; font-size: 1.8rem; margin-bottom: 10px;">¡Bienvenido a tu Sistema!</h2>
+                        <p style="color: #cbd5e1; text-align: center; margin-bottom: 20px;">Configura tu óptica para comenzar</p>
+                """, unsafe_allow_html=True)
+                
+                with st.form("setup_form", border=False):
+                    nuevo_nombre = st.text_input("Nombre de tu Óptica", placeholder="Ej: Visión Clara")
+                    nuevo_logo = st.file_uploader("Sube tu Logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
                     
-                    st.rerun()
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-            st.stop()
-        else:
-            st.markdown(f"""
-                <div class="glass-card">
-                    {logo_html}
-            """, unsafe_allow_html=True)
-            
-            with st.form("login_form", border=False):
-                usuario = st.text_input("Usuario", placeholder="ej: admin")
-                password_inp = st.text_input("Contraseña", type="password", placeholder="••••••••")
-                
-                submit_login = st.form_submit_button("Ingresar al Sistema", type="primary")
-                
-                if submit_login:
-                    _usuarios_act = _cargar_usuarios()
-                    if usuario in _usuarios_act and _usuarios_act[usuario]["password"] == password_inp:
-                        ud = _usuarios_act[usuario]
-                        raw_role = str(ud.get("role", ""))
+                    submit_setup = st.form_submit_button("Guardar Configuración", type="primary")
+                    if submit_setup:
+                        from supabase_client import upload_image, public_url, upload_config
+                        import tempfile
                         
-                        if raw_role.startswith("INACTIVO:"):
-                            st.error("🚫 Tu cuenta ha sido bloqueada. Contacta al administrador.")
-                        else:
-                            st.session_state.logged_in   = True
-                            st.session_state.user_role   = raw_role.replace("INACTIVO:", "")
-                            st.session_state.user_name   = ud.get("nombre", usuario)
-                            st.session_state.user_login    = usuario
-                            st.session_state.user_cargo    = ud.get("cargo", "Optometrista")
-                            st.session_state.user_registro = ud.get("registro", "")
-                            st.session_state.user_telefono = ud.get("telefono", "")
-                            st.session_state.user_firma    = ud.get("firma_base64", "")
-                            st.session_state.user_accesos  = ud.get("accesos", ["Pacientes", "Trabajos", "Ventas"])
+                        if nuevo_nombre:
+                            st.session_state.app_config["nombre_empresa"] = nuevo_nombre
+                            upload_config(st.session_state.app_config)
                             
-                            from database import registrar_auditoria
-                            registrar_auditoria(
-                                accion="Inicio de Sesión",
-                                entidad="Seguridad",
-                                detalle=f"Usuario '{usuario}' ingresó al sistema.",
-                                usuario=usuario,
-                                nombre_usuario=ud.get("nombre", usuario),
-                                sucursal="N/A (Previo a selección)"
-                            )
-                            
-                            assigned_branches = ud.get("sucursales_asignadas")
-                            
-                            if "Administrador" in raw_role:
-                                df_s = cargar_sucursales()
-                                if not df_s.empty:
-                                    assigned_branches = df_s["nombre"].tolist()
-                                else:
-                                    assigned_branches = ["Matriz"]
-                            
-                            if not assigned_branches:
-                                assigned_branches = ["Matriz"]
-                            elif isinstance(assigned_branches, str):
-                                assigned_branches = [assigned_branches]
-                                
-                            st.session_state.sucursales_asignadas = assigned_branches
-                            
-                            if len(assigned_branches) == 1:
-                                st.session_state.sucursal_activa = assigned_branches[0]
-                            else:
-                                st.session_state.sucursal_activa = None
-                                
-                            st.rerun()
+                        if nuevo_logo:
+                            file_ext = nuevo_logo.name.split('.')[-1].lower()
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}") as tmp:
+                                tmp.write(nuevo_logo.getvalue())
+                                tmp_path = tmp.name
+                            if upload_image(tmp_path, "logos/logo.png"):
+                                st.session_state.logo_url = public_url("logos/logo.png")
+                        
+                        st.rerun()
+                
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+        with tab_registro:
+            st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
+            st.markdown('''
+                <div class="glass-card" style="height: auto !important; padding: 20px !important;">
+                    <h3 style="color: white; margin-bottom: 5px;">🚀 Crea tu Clínica Virtual</h3>
+                    <p style="color: #cbd5e1; font-size: 0.9rem; margin-bottom: 15px;">15 días gratis, sin tarjeta de crédito.</p>
+            ''', unsafe_allow_html=True)
+            
+            with st.form("registro_saas_form", border=False):
+                r_optica = st.text_input("Nombre de la Óptica / Clínica *")
+                r_nombre = st.text_input("Nombre Completo del Administrador *")
+                r_email = st.text_input("Correo Electrónico (Tu Usuario) *")
+                r_telefono = st.text_input("Teléfono de Contacto")
+                r_pass1 = st.text_input("Contraseña *", type="password")
+                r_pass2 = st.text_input("Confirmar Contraseña *", type="password")
+                
+                submit_registro = st.form_submit_button("Registrar mi Óptica y Comenzar", type="primary")
+                
+                if submit_registro:
+                    if not r_optica or not r_nombre or not r_email or not r_pass1:
+                        st.error("Por favor completa todos los campos obligatorios (*).")
+                    elif r_pass1 != r_pass2:
+                        st.error("Las contraseñas no coinciden.")
                     else:
-                        from database import registrar_auditoria
-                        registrar_auditoria(
-                            accion="Intento de Acceso Fallido",
-                            entidad="Seguridad",
-                            detalle=f"Se intentó ingresar con el usuario '{usuario}' pero la contraseña fue incorrecta.",
-                            usuario=usuario,
-                            sucursal="N/A"
-                        )
-                        st.error("Credenciales invalidas. Verifica tu usuario y contrasena.")
-            
+                        from database import crear_cuenta_saas
+                        datos_nuevos = {
+                            "username": r_email.strip().lower(),
+                            "password": r_pass1,
+                            "nombre": r_nombre.strip(),
+                            "telefono": r_telefono.strip()
+                        }
+                        exito, mensaje = crear_cuenta_saas(datos_nuevos)
+                        
+                        if exito:
+                            st.success("✅ " + mensaje)
+                            # Auto login
+                            st.session_state.logged_in = True
+                            st.session_state.user_role = "Administrador"
+                            st.session_state.user_name = datos_nuevos["nombre"]
+                            st.session_state.user_login = datos_nuevos["username"]
+                            st.session_state.user_cargo = "Optometrista"
+                            st.session_state.user_registro = "N/A"
+                            st.session_state.user_telefono = datos_nuevos["telefono"]
+                            st.session_state.user_firma = ""
+                            st.session_state.user_accesos = ["Pacientes", "Generar Orden", "Trabajos", "Ventas", "Inventario", "Contabilidad", "Usuarios", "Configuracion", "Inicio"]
+                            usrs = _cargar_usuarios()
+                            if datos_nuevos["username"] in usrs:
+                                st.session_state.empresa_id = usrs[datos_nuevos["username"]].get("empresa_id")
+                            
+                            st.session_state.sucursales_asignadas = ["Matriz"]
+                            st.session_state.sucursal_activa = "Matriz"
+                            
+                            st.rerun()
+                        else:
+                            st.error(f"❌ Error: {mensaje}")
+                            
             st.markdown('</div>', unsafe_allow_html=True)
-            st.markdown(f'<p class="footer-note">© {datetime.now().year} {empresa_nombre} Integral System</p>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
+
+    st.stop()
+
 
     st.stop()
 
@@ -895,6 +966,13 @@ with st.sidebar:
             st.session_state.page = "Configuracion"
             st.rerun()
             
+    if st.session_state.get("user_login") == "superadmin":
+        st.markdown("<hr style='border-top: 2px dashed #ffd700; margin: 10px 0;'>", unsafe_allow_html=True)
+        if st.button("👑 Panel SaaS Maestro", key="nav_saas_panel", use_container_width=True):
+            st.session_state.page = "SaaS Panel"
+            st.rerun()
+        st.markdown("<hr style='border-top: 2px dashed #ffd700; margin: 10px 0;'>", unsafe_allow_html=True)
+
     if st.button("Cerrar Sesion", use_container_width=True):
         # AUDITORÍA: Cierre de sesión
         from database import registrar_auditoria
@@ -941,6 +1019,9 @@ elif page == "Usuarios":
     render_usuarios()
 elif page == "Configuracion":
     render_configuracion()
+elif page == "SaaS Panel" and st.session_state.get("user_login") == "superadmin":
+    from vistas.saas_panel import render_saas_panel
+    render_saas_panel()
 else:
     render_clinica()
 

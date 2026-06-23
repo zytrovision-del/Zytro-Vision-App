@@ -30,6 +30,15 @@ supabase: Client = None
 if SUPABASE_URL and SUPABASE_KEY:
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+def _get_empresa_id() -> str:
+    """Obtiene el ID de la empresa del usuario actual para asegurar aislamiento Multi-Tenant."""
+    try:
+        import streamlit as st
+        # Si existe en session_state, usarlo. Si no, usar un demo/default para evitar crash en tests.
+        return st.session_state.get("empresa_id", "empresa_demo")
+    except:
+        return "empresa_demo"
+
 # ══════════════════════════════════════════════════════════════
 # AUDITORÍA — Registro inmutable de cambios críticos
 # ══════════════════════════════════════════════════════════════
@@ -43,6 +52,7 @@ def registrar_auditoria(accion: str, entidad: str = "", detalle: str = "",
     try:
         from datetime import datetime, timezone
         supabase.table("auditoria").insert({
+            "empresa_id":    _get_empresa_id(),
             "fecha_hora":    datetime.now(timezone.utc).isoformat(),
             "usuario":       usuario or "desconocido",
             "nombre_usuario": nombre_usuario or usuario,
@@ -64,7 +74,7 @@ def cargar_auditoria(limit: int = 500) -> pd.DataFrame:
     try:
         if not supabase:
             return pd.DataFrame()
-        res = supabase.table("auditoria").select("*").order("fecha_hora", desc=True).limit(limit).execute()
+        res = supabase.table("auditoria").select("*").eq("empresa_id", _get_empresa_id()).order("fecha_hora", desc=True).limit(limit).execute()
         return pd.DataFrame(res.data) if res.data else pd.DataFrame()
     except Exception as e:
         print(f"Error cargar_auditoria: {e}")
@@ -77,7 +87,7 @@ def cargar_inventario(sucursal: str = None) -> pd.DataFrame:
     """Carga el inventario de monturas."""
     try:
         if not supabase: return pd.DataFrame()
-        query = supabase.table("inventario").select("*")
+        query = supabase.table("inventario").select("*").eq("empresa_id", _get_empresa_id())
         if sucursal:
             query = query.eq("sucursal", sucursal)
         res = query.order("marca").execute()
@@ -90,8 +100,9 @@ def guardar_producto(data: dict):
     """Guarda o actualiza una montura en el inventario."""
     try:
         if not supabase: return
+        data["empresa_id"] = _get_empresa_id()
         if "id" in data:
-            supabase.table("inventario").update(data).eq("id", data["id"]).execute()
+            supabase.table("inventario").update(data).eq("id", data["id"]).eq("empresa_id", _get_empresa_id()).execute()
         else:
             supabase.table("inventario").insert(data).execute()
     except Exception as e:
@@ -101,7 +112,7 @@ def eliminar_producto(id_producto: int):
     """Elimina un producto del inventario."""
     try:
         if not supabase: return
-        supabase.table("inventario").delete().eq("id", id_producto).execute()
+        supabase.table("inventario").delete().eq("id", id_producto).eq("empresa_id", _get_empresa_id()).execute()
     except Exception as e:
         print(f"Error eliminar_producto: {e}")
 
@@ -113,7 +124,7 @@ def cargar_ordenes_trabajo(sucursal: str = None) -> pd.DataFrame:
     try:
         if not supabase: return pd.DataFrame()
         # Traemos la orden y el pago asociado (join simple de Supabase)
-        query = supabase.table("ordenes_trabajo").select("*, pagos_y_saldos(*)")
+        query = supabase.table("ordenes_trabajo").select("*, pagos_y_saldos(*)").eq("empresa_id", _get_empresa_id())
         if sucursal:
             query = query.eq("sucursal", sucursal)
         res = query.order("id", desc=True).execute()
@@ -127,6 +138,7 @@ def guardar_orden_trabajo(orden_data: dict):
     try:
         if not supabase: return None
         # Insertar Orden con todos los campos técnicos (receta, etc)
+        orden_data["empresa_id"] = _get_empresa_id()
         res = supabase.table("ordenes_trabajo").insert(orden_data).execute()
         if res.data:
             nueva_id = res.data[0]["id"]
@@ -141,7 +153,7 @@ def actualizar_estado_orden(orden_id: int, nuevo_estado: str, usuario: str = "",
     """Actualiza el estado de una orden (Pendiente -> Laboratorio -> etc)."""
     try:
         if not supabase: return
-        supabase.table("ordenes_trabajo").update({"estado": nuevo_estado}).eq("id", orden_id).execute()
+        supabase.table("ordenes_trabajo").update({"estado": nuevo_estado}).eq("id", orden_id).eq("empresa_id", _get_empresa_id()).execute()
         registrar_auditoria(
             accion="Cambio Estado Orden",
             entidad="Laboratorio",
@@ -159,7 +171,7 @@ def obtener_estado_caja(sucursal: str, fecha: str) -> dict:
     """Busca si hay una caja abierta para hoy en esta sucursal."""
     try:
         if not supabase: return None
-        res = supabase.table("caja_diaria").select("*").eq("sucursal", sucursal).eq("fecha", fecha).execute()
+        res = supabase.table("caja_diaria").select("*").eq("empresa_id", _get_empresa_id()).eq("sucursal", sucursal).eq("fecha", fecha).execute()
         return res.data[0] if res.data else None
     except: return None
 
@@ -167,6 +179,7 @@ def abrir_caja(data: dict):
     """Crea el registro de apertura de caja."""
     try:
         if not supabase: return
+        data["empresa_id"] = _get_empresa_id()
         supabase.table("caja_diaria").insert(data).execute()
         registrar_auditoria("Apertura de Caja", "Contabilidad", f"Monto inicial: ${data['monto_apertura']}", data['abierta_por'], sucursal=data['sucursal'])
     except Exception as e: print(f"Error abrir_caja: {e}")
@@ -175,6 +188,7 @@ def registrar_gasto(data: dict):
     """Registra un egreso de dinero."""
     try:
         if not supabase: return
+        data["empresa_id"] = _get_empresa_id()
         supabase.table("gastos").insert(data).execute()
         registrar_auditoria("Gasto Registrado", "Contabilidad", f"{data['categoria']}: ${data['monto']}", data['usuario'], sucursal=data['sucursal'])
     except Exception as e: print(f"Error registrar_gasto: {e}")
@@ -189,7 +203,7 @@ def obtener_resumen_dia(sucursal: str, fecha: str):
         totales = {"Efectivo":0, "Tarjeta":0, "Transferencia":0, "Gastos":0}
         
         # 1. Ingresos desde tabla 'ventas' (Nuevos registros internos)
-        res_ventas = supabase.table("ventas").select("abono, metodo_pago").eq("sucursal", sucursal).filter("fecha", "gte", f"{fecha}T00:00:00").execute()
+        res_ventas = supabase.table("ventas").select("abono, metodo_pago").eq("empresa_id", _get_empresa_id()).eq("sucursal", sucursal).filter("fecha", "gte", f"{fecha}T00:00:00").execute()
         for v in res_ventas.data:
             m = v.get("metodo_pago", "Efectivo")
             if m in totales:
@@ -198,14 +212,14 @@ def obtener_resumen_dia(sucursal: str, fecha: str):
         # 2. Ingresos desde 'ordenes_trabajo' (Abonos de órdenes creadas directamente o saldos)
         # Nota: Filtramos por 'creado_el' para nuevos abonos o podríamos tener una tabla de pagos específica.
         # Por ahora, sumamos abonos de órdenes cuya fecha coincida.
-        res_ordenes = supabase.table("ordenes_trabajo").select("abono, metodo_pago").eq("sucursal", sucursal).filter("creado_el", "gte", f"{fecha}T00:00:00").execute()
+        res_ordenes = supabase.table("ordenes_trabajo").select("abono, metodo_pago").eq("empresa_id", _get_empresa_id()).eq("sucursal", sucursal).filter("creado_el", "gte", f"{fecha}T00:00:00").execute()
         # Evitar duplicar si la venta ya registró el abono en la tabla ventas.
         # Pero como la app está separando módulos, esto dependerá del flujo.
         # Para ser conservadores y no duplicar, si ya sumamos de 'ventas', 
         # solo sumamos de 'ordenes' si no provienen de una venta directa.
         
         # 3. Gastos
-        res_g = supabase.table("gastos").select("monto").eq("sucursal", sucursal).eq("fecha", fecha).execute()
+        res_g = supabase.table("gastos").select("monto").eq("empresa_id", _get_empresa_id()).eq("sucursal", sucursal).eq("fecha", fecha).execute()
         totales["Gastos"] = sum(float(g["monto"]) for g in res_g.data)
         
         return totales
@@ -217,7 +231,7 @@ def cerrar_caja(caja_id: int, data: dict):
     """Cierra la caja del día."""
     try:
         if not supabase: return
-        supabase.table("caja_diaria").update(data).eq("id", caja_id).execute()
+        supabase.table("caja_diaria").update(data).eq("id", caja_id).eq("empresa_id", _get_empresa_id()).execute()
         registrar_auditoria("Cierre de Caja", "Contabilidad", f"Cierre final: ${data['monto_cierre']}", data['cerrada_por'], sucursal=data['sucursal'])
     except Exception as e: print(f"Error cerrar_caja: {e}")
 
@@ -225,7 +239,7 @@ def actualizar_historia(historia_id: int, data: dict):
     """Actualiza campos de una historia clínica en Supabase."""
     try:
         if not supabase: return
-        supabase.table("historias").update(data).eq("id", historia_id).execute()
+        supabase.table("historias").update(data).eq("id", historia_id).eq("empresa_id", _get_empresa_id()).execute()
         registrar_auditoria("Actualizar Historia", "Clínica", f"ID Historia: {historia_id}", st.session_state.user_login, sucursal=st.session_state.get("sucursal_activa", ""))
     except Exception as e: print(f"Error actualizar_historia: {e}")
 
@@ -234,17 +248,18 @@ def registrar_venta_directa(data: dict):
     try:
         if not supabase: return None
         # 1. Registrar la venta en la tabla 'ventas' (ahora incluye costo_total para rentabilidad)
+        data["empresa_id"] = _get_empresa_id()
         res = supabase.table("ventas").insert(data).execute()
         
         # 2. Descontar stock de monturas si aplica
         for item in data.get("detalles", []):
             p_id = item.get("id_armazon") # ID del armazón del inventario
             if p_id:
-                curr = supabase.table("inventario").select("cantidad_disponible").eq("id", p_id).execute()
+                curr = supabase.table("inventario").select("cantidad_disponible").eq("id", p_id).eq("empresa_id", _get_empresa_id()).execute()
                 if curr.data:
                     stock_actual = float(curr.data[0].get("cantidad_disponible", 0))
                     nuevo_stock = max(0, stock_actual - 1)
-                    supabase.table("inventario").update({"cantidad_disponible": nuevo_stock}).eq("id", p_id).execute()
+                    supabase.table("inventario").update({"cantidad_disponible": nuevo_stock}).eq("id", p_id).eq("empresa_id", _get_empresa_id()).execute()
         
         # 3. Auditoría detallada
         costo = data.get('costo_total', 0)
@@ -259,7 +274,7 @@ def cargar_ventas_historial(sucursal: str = None) -> pd.DataFrame:
     """Carga el historial completo de ventas para análisis de rentabilidad."""
     try:
         if not supabase: return pd.DataFrame()
-        query = supabase.table("ventas").select("*")
+        query = supabase.table("ventas").select("*").eq("empresa_id", _get_empresa_id())
         if sucursal and sucursal != "Todas":
             query = query.eq("sucursal", sucursal)
         res = query.order("fecha", desc=True).execute()
@@ -273,7 +288,7 @@ def registrar_pago_saldo(orden_id: int, monto: float, metodo: str, usuario: str,
     try:
         if not supabase: return
         # 1. Obtener orden
-        res = supabase.table("ordenes_trabajo").select("saldo, abono").eq("id", orden_id).execute()
+        res = supabase.table("ordenes_trabajo").select("saldo, abono").eq("id", orden_id).eq("empresa_id", _get_empresa_id()).execute()
         if res.data:
             orden = res.data[0]
             nuevo_abono = float(orden["abono"]) + monto
@@ -283,7 +298,7 @@ def registrar_pago_saldo(orden_id: int, monto: float, metodo: str, usuario: str,
             upd = {"abono": nuevo_abono, "saldo": nuevo_saldo}
             if nuevo_saldo == 0: upd["estado"] = "Entregado" # Autocierre
             
-            supabase.table("ordenes_trabajo").update(upd).eq("id", orden_id).execute()
+            supabase.table("ordenes_trabajo").update(upd).eq("id", orden_id).eq("empresa_id", _get_empresa_id()).execute()
             
             # 3. Auditoría
             registrar_auditoria("Cobro de Saldo", "Ventas", f"Orden #{orden_id} | Cobrado: ${monto}", usuario, sucursal=sucursal)
@@ -299,7 +314,7 @@ def cargar_pacientes() -> pd.DataFrame:
     """Carga todos los pacientes desde Supabase."""
     try:
         if not supabase: return _empty_pacientes_df()
-        response = supabase.table("pacientes").select("*").execute()
+        response = supabase.table("pacientes").select("*").eq("empresa_id", _get_empresa_id()).execute()
         data = response.data
         if data:
             # Reemplazar None por string vacío para mantener compatibilidad con la app
@@ -322,6 +337,7 @@ def guardar_paciente(row: dict):
     try:
         if not supabase: return
         # Asegurar que todos los valores sean string
+        row["empresa_id"] = _get_empresa_id()
         row_str = {k: str(v) if v is not None else "" for k, v in row.items()}
         supabase.table("pacientes").upsert(row_str).execute()
     except Exception as e:
@@ -336,6 +352,8 @@ def guardar_todos_pacientes(df: pd.DataFrame):
         # Reemplazar "nan" por ""
         df_str = df_str.replace("nan", "")
         records = df_str.to_dict(orient="records")
+        for rec in records:
+            rec["empresa_id"] = _get_empresa_id()
         if records:
             supabase.table("pacientes").upsert(records).execute()
     except Exception as e:
@@ -349,7 +367,7 @@ def eliminar_paciente(p_id):
     """Elimina permanentemente un paciente de Supabase."""
     try:
         if not supabase: return
-        supabase.table("pacientes").delete().eq("id", str(p_id)).execute()
+        supabase.table("pacientes").delete().eq("id", str(p_id)).eq("empresa_id", _get_empresa_id()).execute()
     except Exception as e:
         print(f"Error eliminar_paciente: {e}")
 
@@ -426,7 +444,7 @@ def cargar_historias() -> pd.DataFrame:
     """Carga todas las historias clínicas desde Supabase."""
     try:
         if not supabase: return pd.DataFrame(columns=HISTORIAS_COLS)
-        response = supabase.table("historias_clinicas").select("*").execute()
+        response = supabase.table("historias_clinicas").select("*").eq("empresa_id", _get_empresa_id()).execute()
         df = pd.DataFrame(response.data)
         # Asegurar columnas tras la carga
         for col in HISTORIAS_COLS:
@@ -445,6 +463,7 @@ def guardar_historia(row: dict):
     try:
         if not supabase: return
         # Asegurar string y limpiar nulos
+        row["empresa_id"] = _get_empresa_id()
         row_str = {k: str(v) if v is not None else "" for k, v in row.items()}
         supabase.table("historias_clinicas").upsert(row_str).execute()
     except Exception as e:
@@ -459,6 +478,7 @@ def guardar_todas_historias(df: pd.DataFrame):
         records = []
         for _, row in df_limpio.iterrows():
             rec = {str(k): (str(v) if not pd.isna(v) and str(v).lower() != "nan" else "") for k, v in row.to_dict().items()}
+            rec["empresa_id"] = _get_empresa_id()
             records.append(rec)
             
         if records:
@@ -475,7 +495,7 @@ def eliminar_historia(h_id):
     """Elimina permanentemente una historia de Supabase."""
     try:
         if not supabase: return
-        supabase.table("historias_clinicas").delete().eq("id", str(h_id)).execute()
+        supabase.table("historias_clinicas").delete().eq("id", str(h_id)).eq("empresa_id", _get_empresa_id()).execute()
     except Exception as e:
         print(f"Error eliminar_historia: {e}")
 
@@ -487,7 +507,7 @@ def cargar_sucursales() -> pd.DataFrame:
     """Carga todas las sucursales desde Supabase."""
     try:
         if not supabase: return pd.DataFrame(columns=["nombre", "direccion", "telefono", "ciudad"])
-        response = supabase.table("sucursales").select("*").order("nombre").execute()
+        response = supabase.table("sucursales").select("*").eq("empresa_id", _get_empresa_id()).order("nombre").execute()
         return pd.DataFrame(response.data) if response.data else pd.DataFrame(columns=["nombre", "direccion", "telefono", "ciudad"])
     except Exception as e:
         print(f"Error cargar_sucursales: {e}")
@@ -497,6 +517,7 @@ def guardar_sucursal(row: dict):
     """Guarda o actualiza una sucursal."""
     try:
         if not supabase: return False, "Sin conexión a Supabase"
+        row["empresa_id"] = _get_empresa_id()
         supabase.table("sucursales").upsert(row).execute()
         return True, "Guardado exitosamente"
     except Exception as e:
@@ -507,7 +528,7 @@ def eliminar_sucursal(s_id):
     """Elimina una sucursal."""
     try:
         if not supabase: return
-        supabase.table("sucursales").delete().eq("id", s_id).execute()
+        supabase.table("sucursales").delete().eq("id", s_id).eq("empresa_id", _get_empresa_id()).execute()
     except Exception as e:
         print(f"Error eliminar_sucursal: {e}")
 
@@ -515,7 +536,7 @@ def cargar_ordenes_trabajo(sucursal: str = None) -> pd.DataFrame:
     """Carga todas las órdenes de trabajo desde Supabase."""
     try:
         if not supabase: return pd.DataFrame()
-        query = supabase.table("ordenes_trabajo").select("*")
+        query = supabase.table("ordenes_trabajo").select("*").eq("empresa_id", _get_empresa_id())
         if sucursal and sucursal != "Todas":
             query = query.eq("sucursal", sucursal)
         res = query.order("creado_el", desc=True).execute()
@@ -528,7 +549,7 @@ def actualizar_estado_orden(orden_id: int, nuevo_estado: str, usuario: str, sucu
     """Actualiza el estado de una orden de trabajo (ej: Pendiente -> Listo)."""
     try:
         if not supabase: return
-        supabase.table("ordenes_trabajo").update({"estado": nuevo_estado}).eq("id", orden_id).execute()
+        supabase.table("ordenes_trabajo").update({"estado": nuevo_estado}).eq("id", orden_id).eq("empresa_id", _get_empresa_id()).execute()
         registrar_auditoria("Cambio de Estado", "Orden de Trabajo", f"Orden #{orden_id} pasó a {nuevo_estado}", usuario, sucursal=sucursal)
     except Exception as e:
         print(f"Error actualizar_estado_orden: {e}")
@@ -537,7 +558,7 @@ def cargar_orden_trabajo_detallada(orden_id: int):
     """Carga una orden específica con todos sus detalles."""
     try:
         if not supabase: return None
-        res = supabase.table("ordenes_trabajo").select("*").eq("id", orden_id).execute()
+        res = supabase.table("ordenes_trabajo").select("*").eq("id", orden_id).eq("empresa_id", _get_empresa_id()).execute()
         return res.data[0] if res.data else None
     except Exception as e:
         print(f"Error cargar_orden_trabajo_detallada: {e}")
@@ -551,7 +572,7 @@ def cargar_citas_hoy(sucursal: str = None) -> pd.DataFrame:
     try:
         if not supabase: return pd.DataFrame()
         hoy = pd.Timestamp.now().strftime("%Y-%m-%d")
-        query = supabase.table("citas").select("*").eq("fecha", hoy)
+        query = supabase.table("citas").select("*").eq("empresa_id", _get_empresa_id()).eq("fecha", hoy)
         if sucursal and sucursal != "Todas":
             query = query.eq("sucursal", sucursal)
         res = query.order("hora").execute()
@@ -564,7 +585,7 @@ def cargar_todas_citas(sucursal: str = None) -> pd.DataFrame:
     """Carga todas las citas."""
     try:
         if not supabase: return pd.DataFrame()
-        query = supabase.table("citas").select("*")
+        query = supabase.table("citas").select("*").eq("empresa_id", _get_empresa_id())
         if sucursal and sucursal != "Todas":
             query = query.eq("sucursal", sucursal)
         res = query.order("fecha").order("hora").execute()
@@ -577,8 +598,9 @@ def guardar_cita(data: dict):
     """Guarda o actualiza una cita en la base de datos."""
     try:
         if not supabase: return
+        data["empresa_id"] = _get_empresa_id()
         if "id" in data and data["id"]:
-            supabase.table("citas").update(data).eq("id", data["id"]).execute()
+            supabase.table("citas").update(data).eq("id", data["id"]).eq("empresa_id", _get_empresa_id()).execute()
         else:
             supabase.table("citas").insert(data).execute()
         registrar_auditoria("Agendar Cita", "Citas", f"Cita {data.get('motivo', '')} para {data.get('paciente_nombre', '')}", st.session_state.user_login, sucursal=data.get("sucursal", ""))
@@ -589,7 +611,146 @@ def eliminar_cita(cita_id: int):
     """Elimina una cita."""
     try:
         if not supabase: return
-        supabase.table("citas").delete().eq("id", cita_id).execute()
+        supabase.table("citas").delete().eq("id", cita_id).eq("empresa_id", _get_empresa_id()).execute()
         registrar_auditoria("Eliminar Cita", "Citas", f"Cita eliminada ID: {cita_id}", st.session_state.user_login, sucursal=st.session_state.get("sucursal_activa", ""))
     except Exception as e:
         print(f"Error eliminar_cita: {e}")
+
+# ══════════════════════════════════════════════════════════════
+# SUSCRIPCIONES (FASE 2)
+# ══════════════════════════════════════════════════════════════
+def obtener_estado_suscripcion(empresa_id: str) -> dict:
+    """Obtiene el estado actual de la suscripción de una empresa específica."""
+    try:
+        if not supabase: return {"estado_pago": "Vencido"}
+        res = supabase.table("suscripciones").select("*").eq("empresa_id", empresa_id).execute()
+        if res.data:
+            return res.data[0]
+        else:
+            # Si no existe registro, por seguridad se bloquea el acceso.
+            return {"estado_pago": "Vencido"}
+    except Exception as e:
+        print(f"Error obtener_estado_suscripcion: {e}")
+        return {"estado_pago": "Vencido"}
+
+def actualizar_suscripcion_exitosa(empresa_id: str):
+    """Actualiza la suscripción a Activo y suma 30 días a la fecha actual."""
+    try:
+        if not supabase: return False
+        from datetime import datetime, timedelta
+        nueva_fecha = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+        
+        # Intentamos actualizar el registro existente
+        res = supabase.table("suscripciones").update({
+            "estado_pago": "Activo",
+            "fecha_vencimiento": nueva_fecha,
+            "fecha_actualizacion": datetime.now().isoformat()
+        }).eq("empresa_id", empresa_id).execute()
+        
+        # Si no había registro, lo insertamos
+        if not res.data:
+            supabase.table("suscripciones").insert({
+                "empresa_id": empresa_id,
+                "estado_pago": "Activo",
+                "fecha_vencimiento": nueva_fecha,
+                "fecha_actualizacion": datetime.now().isoformat()
+            }).execute()
+        return True
+    except Exception as e:
+        print(f"Error actualizar_suscripcion_exitosa: {e}")
+        return False
+
+# ══════════════════════════════════════════════════════════════
+# AUTO-REGISTRO SAAS (FASE 4)
+# ══════════════════════════════════════════════════════════════
+def crear_cuenta_saas(datos_usuario: dict) -> tuple[bool, str]:
+    """Crea un usuario, genera su empresa_id, y otorga 15 días de prueba."""
+    try:
+        if not supabase: return False, "No hay conexión a la base de datos."
+        import uuid
+        from datetime import datetime, timedelta
+        
+        # 1. Verificar si el usuario ya existe
+        res_check = supabase.table("usuarios").select("username").eq("username", datos_usuario["username"]).execute()
+        if res_check.data:
+            return False, "El correo electrónico ya está registrado."
+            
+        # 2. Generar un empresa_id único
+        nuevo_empresa_id = str(uuid.uuid4())
+        
+        # 3. Insertar el usuario con rol de Administrador
+        accesos_totales = ["Pacientes", "Generar Orden", "Trabajos", "Ventas", "Inventario", "Contabilidad", "Usuarios", "Configuracion", "Inicio"]
+        usuario_db = {
+            "username": datos_usuario["username"],
+            "password": datos_usuario["password"],
+            "role": "Administrador",
+            "nombre": datos_usuario["nombre"],
+            "cargo": "Optometrista",
+            "registro": "N/A",
+            "telefono": datos_usuario["telefono"],
+            "accesos": accesos_totales,
+            "empresa_id": nuevo_empresa_id
+        }
+        supabase.table("usuarios").insert(usuario_db).execute()
+        
+        # 4. Crear la suscripción de prueba (15 días)
+        fecha_prueba = (datetime.now() + timedelta(days=15)).strftime("%Y-%m-%d")
+        supabase.table("suscripciones").insert({
+            "empresa_id": nuevo_empresa_id,
+            "estado_pago": "Prueba",
+            "fecha_vencimiento": fecha_prueba,
+            "fecha_actualizacion": datetime.now().isoformat()
+        }).execute()
+        
+        return True, "Cuenta creada exitosamente"
+    except Exception as e:
+        print(f"Error en crear_cuenta_saas: {e}")
+        return False, f"Ocurrió un error en el servidor: {str(e)}"
+
+# ══════════════════════════════════════════════════════════════
+# PANEL SAAS MAESTRO (FASE 5)
+# ══════════════════════════════════════════════════════════════
+def cargar_todas_suscripciones_global():
+    """Bypass de aislamiento: Lee TODAS las suscripciones y administradores de la plataforma."""
+    try:
+        if not supabase: return pd.DataFrame()
+        
+        # Obtenemos las suscripciones
+        res_sub = supabase.table("suscripciones").select("*").execute()
+        df_sub = pd.DataFrame(res_sub.data)
+        
+        # Obtenemos los usuarios administradores (para saber a qué óptica pertenece cada empresa_id)
+        res_usr = supabase.table("usuarios").select("username, nombre, empresa_id, telefono").eq("role", "Administrador").execute()
+        df_usr = pd.DataFrame(res_usr.data)
+        
+        if df_sub.empty:
+            return pd.DataFrame()
+            
+        if not df_usr.empty:
+            # Hacemos un merge (join) en python usando empresa_id
+            df_merged = pd.merge(df_sub, df_usr, on="empresa_id", how="left")
+            # Limpiamos y reordenamos columnas
+            df_merged = df_merged.fillna("Desconocido")
+            return df_merged
+        
+        return df_sub
+    except Exception as e:
+        print(f"Error cargando suscripciones globales: {e}")
+        return pd.DataFrame()
+
+def actualizar_suscripcion_manual(empresa_id: str, estado_pago: str, fecha_vencimiento: str) -> bool:
+    """Actualización manual (Botón de Emergencia) de una suscripción."""
+    try:
+        if not supabase: return False
+        from datetime import datetime
+        
+        res = supabase.table("suscripciones").update({
+            "estado_pago": estado_pago,
+            "fecha_vencimiento": fecha_vencimiento,
+            "fecha_actualizacion": datetime.now().isoformat()
+        }).eq("empresa_id", empresa_id).execute()
+        
+        return len(res.data) > 0
+    except Exception as e:
+        print(f"Error en actualizar_suscripcion_manual: {e}")
+        return False
