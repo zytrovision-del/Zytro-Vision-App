@@ -35,6 +35,7 @@ export default function Auth() {
       
       if (users && users.length > 0 && users[0].password === password) {
         setSuccessMsg('Autenticación exitosa. Cargando entorno...');
+        localStorage.setItem('zytro_user', JSON.stringify(users[0]));
         setTimeout(() => {
           navigate('/dashboard');
         }, 800);
@@ -63,18 +64,20 @@ export default function Auth() {
     try {
       const empresaId = crypto.randomUUID();
       
+      const newUser = {
+        username: email.toLowerCase(),
+        password: password,
+        nombre: nombre,
+        role: 'Administrador',
+        cargo: 'Optometrista',
+        telefono: telefono,
+        empresa_id: empresaId,
+        accesos: ["Pacientes", "Generar Orden", "Trabajos", "Ventas", "Inventario", "Contabilidad", "Usuarios", "Configuracion", "Inicio"]
+      };
+
       const { error: userError } = await supabase
         .from('usuarios')
-        .insert({
-          username: email.toLowerCase(),
-          password: password,
-          nombre: nombre,
-          role: 'Administrador',
-          cargo: 'Optometrista',
-          telefono: telefono,
-          empresa_id: empresaId,
-          accesos: ["Pacientes", "Generar Orden", "Trabajos", "Ventas", "Inventario", "Contabilidad", "Usuarios", "Configuracion", "Inicio"]
-        });
+        .insert(newUser);
 
       if (userError) throw userError;
 
@@ -93,6 +96,7 @@ export default function Auth() {
       if (subError) throw subError;
 
       setSuccessMsg('Cuenta aprovisionada exitosamente. Bienvenido a ZytroVision.');
+      localStorage.setItem('zytro_user', JSON.stringify(newUser));
       setTimeout(() => {
         navigate('/dashboard');
       }, 1500);
