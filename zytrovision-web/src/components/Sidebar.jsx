@@ -1,11 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, Calendar, Box, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, Calendar, Box, LogOut, Shield, FileText, Beaker, Bot, ShoppingCart, DollarSign, Settings, Receipt } from 'lucide-react';
 import '../index.css';
 
 export default function Sidebar() {
   const isSuperAdmin = true; // Por ahora lo forzamos a true para mostrar la pestaña SaaS
+  const [logoSrc, setLogoSrc] = useState('/logo.png');
   
+  useEffect(() => {
+    // Cargar logo inicial
+    const saved = localStorage.getItem('zytro_logo');
+    if (saved) setLogoSrc(saved);
+
+    // Escuchar el evento de actualización desde ConfiguracionUsuarios
+    const handleLogoUpdate = () => {
+      const updated = localStorage.getItem('zytro_logo');
+      if (updated) setLogoSrc(updated);
+    };
+
+    window.addEventListener('zytro_logo_updated', handleLogoUpdate);
+    return () => window.removeEventListener('zytro_logo_updated', handleLogoUpdate);
+  }, []);
+
   const navStyle = ({ isActive }) => ({
     display: 'flex',
     alignItems: 'center',
@@ -20,11 +36,11 @@ export default function Sidebar() {
   });
 
   return (
-    <div style={{ width: '260px', backgroundColor: 'var(--bg-surface)', borderRight: '1px solid var(--border-light)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ width: '260px', backgroundColor: 'var(--bg-surface)', borderRight: '1px solid var(--border-light)', display: 'flex', flexDirection: 'column', height: '100vh', overflowY: 'auto' }}>
       
       {/* Logo Header */}
-      <div style={{ padding: '30px 20px', borderBottom: '1px solid var(--border-light)', textAlign: 'center' }}>
-        <img src="/logo.png" alt="Logo" style={{ maxHeight: '40px', filter: 'brightness(0) invert(1)', objectFit: 'contain' }} />
+      <div style={{ padding: '30px 20px', borderBottom: '1px solid var(--border-light)', textAlign: 'center', minHeight: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <img src={logoSrc} alt="Logo" style={{ maxHeight: '60px', maxWidth: '100%', objectFit: 'contain' }} />
       </div>
 
       {/* Navigation Links */}
@@ -40,6 +56,30 @@ export default function Sidebar() {
         </NavLink>
         <NavLink to="/dashboard/inventario" style={navStyle}>
           <Box size={20} /> Inventario
+        </NavLink>
+        <NavLink to="/dashboard/punto-venta" style={navStyle}>
+          <ShoppingCart size={20} /> Punto de Venta
+        </NavLink>
+        <NavLink to="/dashboard/generar-orden" style={navStyle}>
+          <FileText size={20} /> Generar Orden
+        </NavLink>
+        <NavLink to="/dashboard/laboratorio" style={navStyle}>
+          <Beaker size={20} /> Laboratorio
+        </NavLink>
+        <NavLink to="/dashboard/contabilidad" style={navStyle}>
+          <DollarSign size={20} /> Contabilidad
+        </NavLink>
+        <NavLink to="/dashboard/facturacion" style={navStyle}>
+          <Receipt size={20} /> Facturación SRI
+        </NavLink>
+        <NavLink to="/dashboard/asistente" style={navStyle}>
+          <Bot size={20} color="#fbbf24" /> <span style={{ color: '#fbbf24' }}>Zytro-Bot (IA)</span>
+        </NavLink>
+        
+        <div style={{ margin: '15px 20px', borderTop: '1px solid var(--border-light)', paddingTop: '15px' }}></div>
+        
+        <NavLink to="/dashboard/configuracion" style={navStyle}>
+          <Settings size={20} /> Configuración
         </NavLink>
         
         {isSuperAdmin && (

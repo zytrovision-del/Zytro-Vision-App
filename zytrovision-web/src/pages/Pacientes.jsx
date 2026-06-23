@@ -8,6 +8,21 @@ export default function Pacientes() {
   const [loading, setLoading] = useState(true);
   const [busqueda, setBusqueda] = useState('');
   
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({
+    identificacion: '',
+    nombres: '',
+    apellidos: '',
+    genero: 'Masculino',
+    fecha_nacimiento: '',
+    telefono: '',
+    correo: '',
+    direccion: '',
+    ocupacion: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Usuario actual
   const user = JSON.parse(localStorage.getItem('zytro_user') || '{}');
 
@@ -16,13 +31,11 @@ export default function Pacientes() {
   }, []);
 
   const cargarPacientes = async () => {
-    if (!user.empresa_id) return;
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('pacientes')
         .select('*')
-        .eq('empresa_id', user.empresa_id)
         .order('id', { ascending: false });
 
       if (error) throw error;
@@ -31,6 +44,58 @@ export default function Pacientes() {
       console.error('Error cargando pacientes:', err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGuardarPaciente = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      
+      // Calculate age from fecha_nacimiento
+      let edadStr = '';
+      if (formData.fecha_nacimiento) {
+        const diffMs = Date.now() - new Date(formData.fecha_nacimiento).getTime();
+        const ageDt = new Date(diffMs);
+        edadStr = Math.abs(ageDt.getUTCFullYear() - 1970).toString();
+      }
+
+      // Calculate maxId safely avoiding NaN
+      const maxId = pacientes.length > 0 
+        ? Math.max(...pacientes.map(p => {
+            const parsed = parseInt(p.id);
+            return isNaN(parsed) ? 0 : parsed;
+          })) 
+        : 0;
+
+      const payload = {
+        ...formData,
+        id: formData.id ? formData.id : String(maxId + 1),
+        nombre: formData.nombres + ' ' + formData.apellidos,
+        edad: edadStr
+      };
+      
+      const { error } = await supabase.from('pacientes').upsert(payload);
+      if (error) throw error;
+      
+      setShowModal(false);
+      setFormData({ identificacion: '', nombres: '', apellidos: '', genero: 'Masculino', fecha_nacimiento: '', telefono: '', correo: '', direccion: '', ocupacion: '' });
+      cargarPacientes();
+    } catch (err) {
+      alert("Error al guardar paciente: " + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const eliminarPaciente = async (id) => {
+    if (!window.confirm("¿Seguro que deseas eliminar este paciente?")) return;
+    try {
+      const { error } = await supabase.from('pacientes').delete().eq('id', id);
+      if (error) throw error;
+      cargarPacientes();
+    } catch (err) {
+      alert("Error eliminando: " + err.message);
     }
   };
 
@@ -50,7 +115,7 @@ export default function Pacientes() {
           </div>
         </div>
         
-        <button className="btn-primary" style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button className="btn-primary" onClick={() => setShowModal(true)} style={{ width: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Plus size={18} /> Nuevo Paciente
         </button>
       </div>
@@ -95,7 +160,7 @@ export default function Pacientes() {
                       <button style={{ background: 'transparent', border: 'none', color: '#60a5fa', cursor: 'pointer' }} title="Editar">
                         <Edit2 size={18} />
                       </button>
-                      <button style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer' }} title="Eliminar">
+                      <button onClick={() => eliminarPaciente(pac.id)} style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer' }} title="Eliminar">
                         <Trash2 size={18} />
                       </button>
                     </td>
@@ -113,6 +178,72 @@ export default function Pacientes() {
           </div>
         )}
       </div>
+
+      {/* Modal Nuevo Paciente */}
+      {showModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div className="glass-panel" style={{ width: '100%', maxWidth: '500px', padding: '30px' }}>
+            <h2 style={{ color: 'white', marginBottom: '20px' }}>Registrar Paciente</h2>
+            <form onSubmit={handleGuardarPaciente}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Cédula / ID</label>
+                <input className="input-field" required value={formData.identificacion} onChange={e => setFormData({...formData, identificacion: e.target.value})} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                <div>
+                  <label style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Nombres</label>
+                  <input className="input-field" required value={formData.nombres} onChange={e => setFormData({...formData, nombres: e.target.value})} />
+                </div>
+                <div>
+                  <label style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Apellidos</label>
+                  <input className="input-field" required value={formData.apellidos} onChange={e => setFormData({...formData, apellidos: e.target.value})} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                <div>
+                  <label style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Género</label>
+                  <select className="input-field" value={formData.genero} onChange={e => setFormData({...formData, genero: e.target.value})}>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Femenino">Femenino</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Fecha de Nacimiento</label>
+                  <input type="date" className="input-field" value={formData.fecha_nacimiento} onChange={e => setFormData({...formData, fecha_nacimiento: e.target.value})} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                <div>
+                  <label style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Teléfono</label>
+                  <input className="input-field" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} />
+                </div>
+                <div>
+                  <label style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Correo</label>
+                  <input type="email" className="input-field" value={formData.correo} onChange={e => setFormData({...formData, correo: e.target.value})} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px' }}>
+                <div>
+                  <label style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Dirección</label>
+                  <input className="input-field" value={formData.direccion} onChange={e => setFormData({...formData, direccion: e.target.value})} />
+                </div>
+                <div>
+                  <label style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Ocupación</label>
+                  <input className="input-field" value={formData.ocupacion} onChange={e => setFormData({...formData, ocupacion: e.target.value})} />
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '15px' }}>
+                <button type="button" onClick={() => setShowModal(false)} className="btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+                <button type="submit" disabled={isSubmitting} className="btn-primary" style={{ flex: 1 }}>
+                  {isSubmitting ? 'Guardando...' : 'Guardar Paciente'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
