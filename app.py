@@ -460,6 +460,37 @@ if not st.session_state.logged_in:
         text-shadow: 0 2px 10px rgba(0,0,0,0.5) !important; /* Sombra para legibilidad */
     }}
 
+    /* ESTILOS PARA LAS PESTAÑAS (TABS) */
+    button[data-baseweb="tab"] {{
+        background-color: rgba(15, 23, 42, 0.7) !important;
+        color: #cbd5e1 !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-bottom: none !important;
+        border-radius: 12px 12px 0 0 !important;
+        padding: 10px 20px !important;
+        margin-right: 5px !important;
+        font-weight: 600 !important;
+        box-shadow: 0 -5px 10px rgba(0,0,0,0.3) !important;
+    }}
+    
+    button[data-baseweb="tab"][aria-selected="true"] {{
+        background-color: #0f172a !important; /* Más oscuro cuando está seleccionado */
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        border-bottom: none !important;
+    }}
+    
+    button[data-baseweb="tab"]:hover {{
+        color: #ffffff !important;
+        background-color: rgba(30, 41, 59, 0.9) !important;
+    }}
+    
+    button[data-baseweb="tab"] p {{
+        font-size: 1.1rem !important;
+        margin: 0 !important;
+        text-shadow: 0 2px 5px rgba(0,0,0,0.5) !important;
+    }}
+
     /* Etiquetas de los campos (Usuario/Contraseña) */
     div[data-testid="stTextInput"] label,
     div[data-testid="stTextInput"] label p,
