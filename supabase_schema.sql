@@ -164,9 +164,19 @@ CREATE TABLE IF NOT EXISTS citas (
     fecha TEXT,
     hora TEXT,
     paciente_nombre TEXT,
+    telefono TEXT,
+    correo TEXT,
     motivo TEXT,
+    optometrista TEXT,
+    estado TEXT DEFAULT 'Pendiente',
     sucursal TEXT
 );
+
+-- Migración: Añadir columnas faltantes si la tabla ya existe
+ALTER TABLE citas ADD COLUMN IF NOT EXISTS telefono TEXT;
+ALTER TABLE citas ADD COLUMN IF NOT EXISTS correo TEXT;
+ALTER TABLE citas ADD COLUMN IF NOT EXISTS optometrista TEXT;
+ALTER TABLE citas ADD COLUMN IF NOT EXISTS estado TEXT DEFAULT 'Pendiente';
 
 -- Configuración de seguridad: Habilitar el acceso a todas las tablas (MVP Abierto)
 DO $$

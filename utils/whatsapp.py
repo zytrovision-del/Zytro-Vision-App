@@ -1,5 +1,5 @@
 """
-utils/whatsapp.py — Funciones de mensajería WhatsApp para Zytro Vision
+utils/whatsapp.py — Funciones de mensajería WhatsApp
 """
 
 import urllib.parse
@@ -13,12 +13,26 @@ def wa_link(numero: str, mensaje: str) -> str:
     return f"https://wa.me/{num}?text={urllib.parse.quote(mensaje)}"
 
 
+def _get_config():
+    """Obtiene la configuración de la empresa desde session_state."""
+    try:
+        import streamlit as st
+        app_config = st.session_state.get("app_config", {})
+        return {
+            "nombre": app_config.get("nombre_empresa", "Tu Óptica"),
+            "telefono": app_config.get("telefono_empresa", ""),
+        }
+    except Exception:
+        return {"nombre": "Tu Óptica", "telefono": ""}
+
+
 def generar_msg_factura(row) -> str:
     """Genera el mensaje WhatsApp para una factura/trabajo."""
-    import streamlit as st
-    app_config = st.session_state.get("app_config", {})
-    empresa_nombre = app_config.get("nombre_empresa", "Zytro Vision")
-    
+    cfg = _get_config()
+    empresa_nombre = cfg["nombre"]
+    telefono = cfg["telefono"]
+    contacto = f" | {telefono}" if telefono else ""
+
     estado = row.get('estado', '')
     return (
         f"*{empresa_nombre} - Detalle de su Servicio*\n\n"
@@ -30,16 +44,17 @@ def generar_msg_factura(row) -> str:
         f"Abonado: ${row.get('abono', 0):.2f}\n"
         f"Saldo Pendiente: ${row.get('saldo_pendiente', 0):.2f}\n"
         f"Estado: {estado}\n\n"
-        f"Para consultas: +593 96 324 1158 | {empresa_nombre}"
+        f"Para consultas: {empresa_nombre}{contacto}"
     )
 
 
 def generar_msg_hc(row, paciente_info) -> str:
     """Genera el mensaje WhatsApp para compartir una historia clínica (resumen)."""
-    import streamlit as st
-    app_config = st.session_state.get("app_config", {})
-    empresa_nombre = app_config.get("nombre_empresa", "Zytro Vision")
-    
+    cfg = _get_config()
+    empresa_nombre = cfg["nombre"]
+    telefono = cfg["telefono"]
+    contacto = f" | {telefono}" if telefono else ""
+
     return (
         f"*{empresa_nombre} - Resumen de Consulta Optometrica*\n\n"
         f"Paciente: {paciente_info.get('nombre', '')}\n"
@@ -49,7 +64,7 @@ def generar_msg_hc(row, paciente_info) -> str:
         f"OD: {row.get('rx_od', '')}\n"
         f"OI: {row.get('rx_oi', '')}\n\n"
         f"Recomendaciones:\n{row.get('recomendaciones', '')}\n\n"
-        f"Para consultas: +593 96 324 1158 | {empresa_nombre}"
+        f"Para consultas: {empresa_nombre}{contacto}"
     )
 
 
@@ -60,15 +75,16 @@ def generar_msg_indicaciones(row, paciente_info) -> str:
         recom = 'Ver indicaciones de su optometrista.'
     control = row.get('meses_proximo_control', '')
     control_txt = f"\nProximo control: en {control} mes(es)." if control else ""
-    import streamlit as st
-    app_config = st.session_state.get("app_config", {})
-    empresa_nombre = app_config.get("nombre_empresa", "Zytro Vision")
-    
+    cfg = _get_config()
+    empresa_nombre = cfg["nombre"]
+    telefono = cfg["telefono"]
+    contacto = f" | {telefono}" if telefono else ""
+
     return (
         f"*{empresa_nombre} - Indicaciones Medicas*\n\n"
         f"Paciente: {paciente_info.get('nombre', '')}\n"
         f"Consulta: {row.get('fecha', '')}\n\n"
         f"*Indicaciones / Tratamiento:*\n{recom}"
         f"{control_txt}\n\n"
-        f"Consultas: +593 96 324 1158 | {empresa_nombre}"
+        f"Consultas: {empresa_nombre}{contacto}"
     )

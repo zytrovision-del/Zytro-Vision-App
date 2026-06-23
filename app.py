@@ -707,12 +707,13 @@ with st.sidebar:
         st.markdown("<style>[data-testid='stSidebar'] img { filter: brightness(0); padding-bottom: 0px !important; margin-top: -55px !important; }</style>", unsafe_allow_html=True)
         st.image(logo_to_show, use_container_width=True)
         
-        # Botón de edición debajo del logo
-        col1, col2, col3 = st.columns([1, 4, 1])
-        with col2:
-            if st.button("✏️ Editar logo", use_container_width=True, help="Haz clic para cambiar el logo"):
-                st.session_state.show_logo_uploader = not st.session_state.show_logo_uploader
-                st.rerun()
+        # Solo Administradores pueden editar la configuración de la empresa
+        if st.session_state.get("user_role") == "Administrador":
+            col1, col2, col3 = st.columns([1, 4, 1])
+            with col2:
+                if st.button("✏️ Personalizar App", use_container_width=True, help="Cambiar logo, firma y nombre de empresa"):
+                    st.session_state.show_logo_uploader = not st.session_state.show_logo_uploader
+                    st.rerun()
     else:
         st.session_state.show_logo_uploader = True
         st.markdown("""
@@ -722,27 +723,89 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
-    if st.session_state.show_logo_uploader:
-        uploaded_file = st.file_uploader("📤 Sube tu nuevo logo", type=["png", "jpg", "jpeg"], key="logo_upload_sb")
-        if uploaded_file:
-            import tempfile
-            from supabase_client import upload_image, public_url
+    # Panel de personalización expandido (solo admin)
+    if st.session_state.show_logo_uploader and st.session_state.get("user_role") == "Administrador":
+        with st.expander("🎨 Configuración de la Empresa", expanded=True):
+            # ── Nombre y Teléfono de la Empresa ───────────────────────────
+            app_cfg = st.session_state.get("app_config", {"nombre_empresa": "Zytro Vision"})
+            nuevo_nombre_empresa = st.text_input(
+                "🏢 Nombre de tu Óptica",
+                value=app_cfg.get("nombre_empresa", "Zytro Vision"),
+                key="sb_nombre_empresa"
+            )
+            nuevo_tel_empresa = st.text_input(
+                "📞 Teléfono de Contacto",
+                value=app_cfg.get("telefono_empresa", ""),
+                placeholder="Ej: +593 99 123 4567",
+                key="sb_tel_empresa"
+            )
+            if st.button("💾 Guardar Datos", key="btn_guardar_nombre", use_container_width=True):
+                from supabase_client import upload_config
+                app_cfg["nombre_empresa"] = nuevo_nombre_empresa
+                app_cfg["telefono_empresa"] = nuevo_tel_empresa
+                st.session_state.app_config = app_cfg
+                upload_config(app_cfg)
+                st.success("✅ Datos de la empresa guardados.")
+                st.rerun()
             
-            file_ext = uploaded_file.name.split('.')[-1].lower()
-            local_save_name = f"logo.{file_ext}"
-            with open(local_save_name, "wb") as f:
-                f.write(uploaded_file.getvalue())
-                
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}") as tmp:
-                tmp.write(uploaded_file.getvalue())
-                tmp_path = tmp.name
-                
-            remote_path = "logos/logo.png"
-            if upload_image(tmp_path, remote_path):
-                st.session_state.logo_url = public_url(remote_path)
+            st.markdown("---")
             
-            st.session_state.show_logo_uploader = False
-            st.rerun()
+            # ── Logo ──────────────────────────────────────────
+            st.caption("📤 Logo de la Empresa (aparece en certificados y login)")
+            uploaded_file = st.file_uploader("Sube tu logo", type=["png", "jpg", "jpeg"], key="logo_upload_sb")
+            if uploaded_file:
+                import tempfile
+                from supabase_client import upload_image, public_url
+                
+                file_ext = uploaded_file.name.split('.')[-1].lower()
+                local_save_name = f"logo.{file_ext}"
+                with open(local_save_name, "wb") as f:
+                    f.write(uploaded_file.getvalue())
+                    
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_ext}") as tmp:
+                    tmp.write(uploaded_file.getvalue())
+                    tmp_path = tmp.name
+                    
+                remote_path = "logos/logo.png"
+                if upload_image(tmp_path, remote_path):
+                    st.session_state.logo_url = public_url(remote_path)
+                
+                st.success("✅ Logo actualizado.")
+                st.rerun()
+            
+            st.markdown("---")
+            
+            # ── Firma ─────────────────────────────────────────
+            st.caption("✍️ Firma del Profesional (aparece en certificados PDF)")
+            uploaded_firma = st.file_uploader("Sube la firma (PNG transparente ideal)", type=["png", "jpg", "jpeg"], key="firma_upload_sb")
+            if uploaded_firma:
+                import base64 as _b64
+                firma_bytes = uploaded_firma.getvalue()
+                firma_b64 = _b64.b64encode(firma_bytes).decode("utf-8")
+                
+                # Guardar localmente con el nombre del usuario actual
+                user_login = st.session_state.get("user_login", "admin")
+                firma_local = f"firma_{user_login}.png"
+                with open(firma_local, "wb") as f:
+                    f.write(firma_bytes)
+                
+                # Guardar en Supabase en tabla usuarios
+                try:
+                    from database import supabase
+                    if supabase:
+                        supabase.table("usuarios").update(
+                            {"firma_base64": firma_b64}
+                        ).eq("username", user_login).execute()
+                        st.session_state.user_firma = firma_b64
+                        st.success("✅ Firma guardada en tu perfil.")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error guardando firma: {e}")
+            
+            if st.button("✖️ Cerrar panel", key="btn_cerrar_panel", use_container_width=True):
+                st.session_state.show_logo_uploader = False
+                st.rerun()
+
 
     st.markdown("<div class='fancy-divider'></div>", unsafe_allow_html=True)
 

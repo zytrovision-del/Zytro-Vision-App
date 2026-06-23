@@ -94,6 +94,60 @@ def render_configuracion():
         st.write(f"**Nombre:** {st.session_state.get('user_name')}")
         st.write(f"**Rol:** {st.session_state.get('user_role')}")
         st.write(f"**Cargo:** {st.session_state.get('user_cargo')}")
+        
+        st.markdown("---")
+        st.subheader("✍️ Mi Firma Digital")
+        st.info("Tu firma aparecerá automáticamente al pie de los certificados visuales que generes.")
+        
+        # Mostrar firma actual si existe
+        user_login = st.session_state.get("user_login", "")
+        firma_actual_b64 = st.session_state.get("user_firma", "")
+        
+        if firma_actual_b64:
+            import base64 as _b64
+            try:
+                firma_bytes_display = _b64.b64decode(firma_actual_b64)
+                st.image(firma_bytes_display, caption="Firma actual", width=200)
+            except Exception:
+                st.caption("(No se pudo previsualizar la firma actual)")
+        else:
+            st.caption("🖊️ Aún no tienes una firma subida.")
+        
+        # Formulario de subida de firma
+        with st.form("form_firma_perfil", clear_on_submit=True):
+            nueva_firma = st.file_uploader(
+                "Sube tu firma (PNG con fondo transparente recomendado)",
+                type=["png", "jpg", "jpeg"],
+                help="El archivo debe ser una imagen de tu firma. Fondo blanco o transparente."
+            )
+            if st.form_submit_button("💾 Guardar Mi Firma", type="primary"):
+                if nueva_firma:
+                    import base64 as _b64
+                    firma_bytes = nueva_firma.getvalue()
+                    firma_b64 = _b64.b64encode(firma_bytes).decode("utf-8")
+                    
+                    # Guardar localmente
+                    firma_local = f"firma_{user_login}.png"
+                    with open(firma_local, "wb") as f:
+                        f.write(firma_bytes)
+                    
+                    # Guardar en Supabase
+                    try:
+                        from database import supabase
+                        if supabase:
+                            supabase.table("usuarios").update(
+                                {"firma_base64": firma_b64}
+                            ).eq("username", user_login).execute()
+                            st.session_state.user_firma = firma_b64
+                            st.success("✅ Firma guardada exitosamente. Aparecerá en tus próximos certificados.")
+                            st.rerun()
+                        else:
+                            st.error("Sin conexión a la base de datos.")
+                    except Exception as e:
+                        st.error(f"Error al guardar la firma: {e}")
+                else:
+                    st.warning("Por favor selecciona un archivo de firma.")
+
 
     if is_admin:
         with st_tabs[2]:
